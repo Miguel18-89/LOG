@@ -1,0 +1,25 @@
+{
+  "name": "log-backend",
+  "version": "1.0.0",
+  "description": "Repositório LOG Backend",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miguel18-89/LOG.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Miguel18-89/LOG/issues"
+  },
+  "homepage": "https://github.com/Miguel18-89/LOG#readme",
+  "devDependencies": {
+    "prisma": "^6.16.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2"
+  }
+}

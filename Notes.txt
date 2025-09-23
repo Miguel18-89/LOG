@@ -1,0 +1,8 @@
+ENUM's
+
+user-role
+0 = user
+1 = Manager
+2 = Admin
+
+
