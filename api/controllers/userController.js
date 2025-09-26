@@ -9,38 +9,35 @@ exports.createUser = async (req, res) => {
         if (!name || !email || !password) {
             return res.status(400).json({ error: 'Name, email and password are required' });
         }
+        const emailExist = await prisma.user.findUnique({
+            where: { email: email },
+        });
+        if (emailExist){
+            res.status(500).json("Email already registered");
+        }
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        const newUser = await prisma.user.create({
+        await prisma.user.create({
             data: {
                 name,
                 email,
                 password: hashedPassword,
             },
         });
-        res.status(201).json({ message: `New User created: ${JSON.stringify(newUser)}` });
+        res.status(201).json("User created successfully");
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: 'Something went wrong' });
+        res.status(500).json('Something went wrong');
     }
 };
 
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const allUsers = await prisma.user.findMany();
+        const allUsersRaw = await prisma.user.findMany();
+        const allUsers = allUsersRaw.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
         res.status(200).json({ allUsers });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Something went wrong' });
-    }
-}
 
-
-exports.getUserById = async (req, res) => {
-    try {
-        const allUsers = await prisma.user.findMany();
-        res.status(200).json({ allUsers });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Something went wrong' });
