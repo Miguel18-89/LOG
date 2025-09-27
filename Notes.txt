@@ -6,3 +6,7 @@ user-role
 2 = Admin
 
 
+SMTP_HOST=sandbox.smtp.mailtrap.io
+SMTP_USER=8036c545765714
+SMTP_PASSWORD=af05c18a07c8e9
+SMTP_PORT=25

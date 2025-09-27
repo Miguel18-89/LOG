@@ -7,13 +7,13 @@ exports.createUser = async (req, res) => {
     try {
         const { name, email, password } = req.body;
         if (!name || !email || !password) {
-            return res.status(400).json({ error: 'Name, email and password are required' });
+            return res.status(400).json('Name, email and password are required');
         }
         const emailExist = await prisma.user.findUnique({
             where: { email: email },
         });
         if (emailExist){
-            res.status(500).json("Email already registered");
+            res.status(500).json('Email already registered');
         }
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);

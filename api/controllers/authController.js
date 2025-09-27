@@ -10,18 +10,18 @@ const JWT_SECRET = process.env.JWT_SECRET;
 exports.login = async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password required' });
+    return res.status(400).json('Email and password required');
   }
   try {
     const user = await prisma.user.findUnique({
       where: { email },
     });
     if (!user || !user.is_active) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json('User not found');
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid password' });
+      return res.status(401).json('Invalid password');
     }
     const token = jwt.sign(
       { id: user.id, email: user.email },
@@ -63,7 +63,7 @@ exports.forgotPassword = async (req, res) => {
         resetTokenExp: new Date(Date.now() + 15 * 60 * 1000),
       },
     });
-    const resetURL = `${req.protocol}://${req.get('host')}/api/users/reset-password/${resetToken}`;
+    const resetURL = `${req.protocol}://localhost:5173/reset-password/${resetToken}`;
     await sendEmail(user.email, "password Reset", `click here to reset your password: ${resetURL}`);
     return res.status(200).json({ message: 'Password reset email sent' });
   } catch (err) {
