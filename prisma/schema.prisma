@@ -14,14 +14,130 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  name          String
-  email         String    @unique
-  password      String
-  role          Int       @default(0) //0=user, 1=manager, 2=admin
-  is_active     Boolean   @default(true)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  resetToken    String?
-  resetTokenExp DateTime?
+  id                      String         @id @default(uuid())
+  name                    String
+  email                   String         @unique
+  password                String
+  role                    Int            @default(0) //0=user, 1=manager, 2=admin
+  is_active               Boolean        @default(true)
+  created_at              DateTime       @default(now())
+  updated_at              DateTime       @updatedAt
+  resetToken              String?
+  resetTokenExp           DateTime?
+  createdStores           Store[]        @relation("CreatedByUser")
+  updatedStores           Store[]        @relation("UpdatedByUser")
+  updatedSurveys          Survey[]       @relation("UpdatedByUser")
+  updatedProvisioning     Provisioning[] @relation("UpdatedByUser")
+  updatedPhase1           Phase1[]       @relation("UpdatedByUser")
+  updatedPhase2           Phase2[]       @relation("UpdatedByUser")
+  updatedComments         Comments[]     @relation("CreatedByUser")
+}
+
+model Store {
+  id                      String         @id @default(uuid())
+  storeName               String
+  storeNumber             Int            @unique
+  storeAddress            String
+  storeRegion             String
+  storeArea               Int
+  storeInspectorName      String
+  storeInspectorContact   Int
+  created_at              DateTime       @default(now())
+  updated_at              DateTime       @updatedAt
+  created_by              String
+  createdBy               User           @relation("CreatedByUser", fields: [created_by], references: [id])
+  updated_by              String?
+  updatedBy               User?          @relation("UpdatedByUser", fields: [updated_by], references: [id])
+  storeSurveys            Survey[]       @relation("surveyFromStore")
+  storeProvisioning       Provisioning[] @relation("ProvisioningFromStore")
+  storePhase1             Phase1[]       @relation("Phase1FromStore")
+  storePhase2             Phase2[]       @relation("Phase2FromStore")
+  commentsPhase2          Comments[]     @relation("CommentsFromStore") //Alterar este paramentro para "comments"
+}
+
+model Survey {
+  id                       String    @id @default(uuid())
+  surveyHasFalseCeilling   Boolean?
+  surveyMetalFalseCeilling Boolean?
+  surveyCheckoutCount      Int?
+  surveyHasElectronicGates Boolean?
+  surveyArea               Int?
+  surveyPhase1Date         DateTime?
+  surveyPhase1Type         String?
+  surveyPhase2Date         DateTime?
+  surveyPhase2Type         String?
+  surveyOpeningDate        DateTime?
+  surveyHeadsets           String?
+  surveyHasBread           Boolean?
+  surveyHasChicken         Boolean?
+  surveyHasCodfish         Boolean?
+  surveyHasNewOvens        Boolean?
+  status                   Int       @default(0) //0 = not init 1=partial 2=Completed
+  updated_at               DateTime  @updatedAt
+  updated_by               String?
+  updatedBy                User?     @relation("UpdatedByUser", fields: [updated_by], references: [id])
+  store_id                 String
+  storeId                  Store     @relation("surveyFromStore", fields: [store_id], references: [id])
+}
+
+model Provisioning {
+  id                      String    @id @default(uuid())
+  ordered                 Boolean?
+  trackingNumber          Int?
+  received                Boolean?
+  validated               Boolean?
+  status                  Int       @default(0) //0=not init(red), 1=On the way(yellow), 2=Validated(green)
+  updated_at              DateTime? @updatedAt
+  updated_by              String?
+  updatedBy               User?     @relation("UpdatedByUser", fields: [updated_by], references: [id])
+  store_id                String
+  storeId                 Store     @relation("ProvisioningFromStore", fields: [store_id], references: [id])
+}
+
+model Phase1 {
+  id                      String    @id @default(uuid())
+  cablesSalesArea         Boolean   @default(false)
+  cablesBakery            Boolean   @default(false)
+  cablesWarehouse         Boolean   @default(false)
+  cablesBackoffice        Boolean   @default(false)
+  speakersSalesArea       Boolean   @default(false)
+  speakersBakery          Boolean   @default(false)
+  speakersWarehouse       Boolean   @default(false)
+  speakersBackoffice      Boolean   @default(false)
+  status                  Int       @default(0) //0 = not init 1=partial 2=Completed
+  updated_at              DateTime? @updatedAt
+  updated_by              String?
+  updatedBy               User?     @relation("UpdatedByUser", fields: [updated_by], references: [id])
+  store_id                String
+  storeId                 Store     @relation("Phase1FromStore", fields: [store_id], references: [id])
+}
+
+model Phase2 {
+  id                      String    @id @default(uuid())
+  kls                     Boolean   @default(false)
+  acrylics                Boolean   @default(false)
+  hotButtons              Boolean   @default(false)
+  eas                     Boolean   @default(false)
+  tiko                    Boolean   @default(false)
+  ovens                   Boolean   @default(false)
+  quailDigital            Boolean   @default(false)
+  smc                     Boolean   @default(false)
+  amplifier               Boolean   @default(false)
+  tests                   Boolean   @default(false)
+  status                  Int       @default(0) //0 = not init 1=partial 2=Completed
+  updated_at              DateTime? @updatedAt
+  updated_by              String?
+  updatedBy               User?     @relation("UpdatedByUser", fields: [updated_by], references: [id])
+  store_id                String
+  storeId                 Store     @relation("Phase2FromStore", fields: [store_id], references: [id])
+}
+
+model Comments {
+  id                      String @id @default(uuid())
+  store_id                String
+  storeId                 Store  @relation("CommentsFromStore", fields: [store_id], references: [id])
+  created_by              String
+  createdBy               User   @relation("CreatedByUser", fields: [created_by], references: [id])
+  phase                   Int //0=survey, 1=provisioning, 2=Phase1, 3=phase2  //Retirar o Phase???
+  message                 String
 }

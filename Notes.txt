@@ -5,8 +5,53 @@ user-role
 1 = Manager
 2 = Admin
 
+Survey - status
+0 = not init 
+1 = partial 
+2 = Completed
+
+provisioning-status
+0 = not init //red
+1 = on the Way (When tracking Number exists) //Yellow
+2 = validated-ok //Green
+
+Phase1 - status
+0 = not init 
+1 = partial 
+2 = Completed
+
+Phase2 - status
+0 = not init 
+1 = partial 
+2 = Completed
+
+Comments-phase
+0 = survey 
+1 = provisioning
+2 = Phase1 
+3 = phase2
+
+
+
+
+
+
 
 SMTP_HOST=sandbox.smtp.mailtrap.io
 SMTP_USER=8036c545765714
 SMTP_PASSWORD=af05c18a07c8e9
 SMTP_PORT=25
+
+
+
+
+Discutir com o Nuno:
+
+1 - O id do survey, provisioning, phase1 and phase 2 deveria ser guardado na tabela de lojas para mais facil fazer o populate??
+
+2 - A relação inversa das chaves estrangeiras serve para isso?
+
+3 - Os comentários por fase se calhar não fazem assim tanto sentido. Mais valia ter um "chat" de mensagens por loja.
+
+4 - Quando se apaga uma loja apaga respectivo survey, provisioning, phase1, phase2 e comentarios?
+

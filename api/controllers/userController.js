@@ -31,7 +31,6 @@ exports.createUser = async (req, res) => {
     }
 };
 
-
 exports.getAllUsers = async (req, res) => {
     try {
         const allUsersRaw = await prisma.user.findMany();
@@ -43,7 +42,6 @@ exports.getAllUsers = async (req, res) => {
         res.status(500).json({ error: 'Something went wrong' });
     }
 }
-
 
 exports.getUserById = async (req, res) => {
     try {
@@ -63,7 +61,6 @@ exports.getUserById = async (req, res) => {
         res.status(500).json({ error: 'Something went wrong' });
     }
 };
-
 
 exports.updateUser = async (req, res) => {
     try {
@@ -94,7 +91,6 @@ exports.updateUser = async (req, res) => {
     }
 };
 
-
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -114,80 +110,3 @@ exports.deleteUser = async (req, res) => {
         res.status(500).json({ error: 'Something went wrong' });
     }
 };
-
-
-
-
-
-
-
-
-
-
-/*
-const UserModel = require("../models/UserModel");
-
-exports.getAllUsers = async (req, res, next) => {
-    UserModel.find({})
-        .then(user => {
-            res.status(200).json({
-                status: "Success",
-                data: user
-            });
-        })
-        .catch(err => {
-            res.status(404).json({
-                status: "fail",
-                message: err.message
-            });
-        });
-}
-
-
-
-exports.updateUser = async (req, res) => {
-    UserModel.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-        .then(user => {
-            res.status(200).json({
-                status: "updated",
-                data: user
-            })
-        })
-        .catch(err => {
-            console.log(err)
-            res.status(400).json({
-                status: "Não encontrado",
-                message: err
-            })
-        })
-}
-
-exports.getUserById = async (req, res) => {
-    UserModel.findById(req.params.id)
-        .then(user => {
-            res.status(200).json(user);
-        })
-        .catch(err => {
-            res.status(404).json({
-                status: "Não encontrado",
-            })
-        })
-}
-
-
-exports.deleteUser = async (req, res) => {
-    UserModel.findByIdAndDelete(req.params.id)
-        .then(user => {
-            res.status(200).json({
-                status: "Success",
-                data: null
-            })
-        })
-        .catch(err => {
-            res.status(404).json({
-                status: "Não encontrado3",
-                message: err
-            })
-        })
-}
-*/

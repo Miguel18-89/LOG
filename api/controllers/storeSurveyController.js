@@ -1,0 +1,205 @@
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+
+exports.createStoreSurvey = async (req, res) => {
+    try {
+        const {
+            surveyHasFalseCeilling,
+            surveyMetalFalseCeilling,
+            surveyCheckoutCount,
+            surveyHasElectronicGates,
+            surveyArea,
+            surveyPhase1Date,
+            surveyPhase1Type,
+            surveyPhase2Date,
+            surveyPhase2Type,
+            surveyOpeningDate,
+            surveyHeadsets,
+            surveyHasBread,
+            surveyHasChicken,
+            surveyHasCodfish,
+            surveyHasNewOvens,
+            status,
+            storeId,
+            userId,
+        } = req.body;
+
+        if (!storeId || !userId) {
+            return res.status(400).json('Store Id and User Id required');
+        }
+
+        const storeIdExist = await prisma.store.findUnique({
+            where: { id: storeId },
+        });
+
+        if (!storeIdExist) {
+            return res.status(404).json('Store not found');
+        }
+
+        const newSurvey = await prisma.survey.create({
+            data: {
+                surveyHasFalseCeilling,
+                surveyMetalFalseCeilling,
+                surveyCheckoutCount,
+                surveyHasElectronicGates,
+                surveyArea: surveyArea ? Number(surveyArea) : null,
+                surveyPhase1Date,
+                surveyPhase1Type,
+                surveyPhase2Date,
+                surveyPhase2Type,
+                surveyOpeningDate,
+                surveyHeadsets,
+                surveyHasBread,
+                surveyHasChicken,
+                surveyHasCodfish,
+                surveyHasNewOvens,
+                storeId,
+                updatedBy: {
+                    connect: { id: userId },
+                },
+                storeId: {
+                    connect: { id: storeId },
+                },
+            },
+        });
+
+        res.status(201).json({ message: 'Survey created successfully', survey: newSurvey });
+    } catch (e) {
+        console.error('Erro ao criar loja:', e);
+        res.status(500).json('Something went wrong');
+    }
+};
+
+
+exports.getAllSurveys = async (req, res) => {
+    try {
+        const allSurveys = await prisma.survey.findMany();
+        res.status(200).json({ allSurveys });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Something went wrong' });
+    }
+}
+
+
+exports.getSurveyById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const survey = await prisma.survey.findUnique({
+            where: {
+                id: id,
+            },
+        });
+        if (!survey) {
+            return res.status(404).json({ error: 'Survey not found' });
+        }
+        res.status(200).json({ survey });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Something went wrong' });
+    }
+};
+
+exports.getSurveyByStoreId = async (req, res) => {
+    try {
+        const { storeId } = req.body;
+        const storeSurvey = await prisma.survey.findUnique({
+            where: {
+                storeId: storeId,
+            },
+        });
+        if (!storeSurvey) {
+            return res.status(404).json({ error: 'Store Survey not found' });
+        }
+        res.status(200).json({ storeSurvey });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Something went wrong' });
+    }
+};
+
+
+exports.updateSurvey = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            surveyHasFalseCeilling,
+            surveyMetalFalseCeilling,
+            surveyCheckoutCount,
+            surveyHasElectronicGates,
+            surveyArea,
+            surveyPhase1Date,
+            surveyPhase1Type,
+            surveyPhase2Date,
+            surveyPhase2Type,
+            surveyOpeningDate,
+            surveyHeadsets,
+            surveyHasBread,
+            surveyHasChicken,
+            surveyHasCodfish,
+            surveyHasNewOvens,
+            status,
+            storeId,
+            userId,
+        } = req.body;
+
+        const surveyExist = await prisma.survey.findUnique({
+            where: { id },
+        });
+
+        if (!surveyExist) {
+            return res.status(404).json({ error: 'Store Survey not found' });
+        }
+
+        const updatedData = {};
+        if (surveyHasFalseCeilling) updatedData.surveyHasFalseCeilling = surveyHasFalseCeilling;
+        if (surveyMetalFalseCeilling) updatedData.surveyMetalFalseCeilling = surveyMetalFalseCeilling;
+        if (surveyCheckoutCount) updatedData.surveyCheckoutCount = surveyCheckoutCount;
+        if (surveyHasElectronicGates) updatedData.surveyHasElectronicGates = surveyHasElectronicGates;
+        if (surveyArea) updatedData.surveyArea = surveyArea;
+        if (surveyPhase1Date) updatedData.surveyPhase1Date = surveyPhase1Date;
+        if (surveyPhase1Type) updatedData.surveyPhase1Type = surveyPhase1Type;
+        if (surveyPhase2Date) updatedData.surveyPhase2Date = surveyPhase2Date;
+        if (surveyPhase2Type) updatedData.surveyPhase2Type = surveyPhase2Type;
+        if (surveyOpeningDate) updatedData.surveyOpeningDate = surveyOpeningDate;
+        if (surveyHeadsets) updatedData.surveyHeadsets = surveyHeadsets;
+        if (surveyHasBread) updatedData.surveyHasBread = surveyHasBread;
+        if (surveyHasChicken) updatedData.surveyHasChicken = surveyHasChicken;
+        if (surveyHasCodfish) updatedData.surveyHasCodfish = surveyHasCodfish;
+        if (surveyHasNewOvens) updatedData.surveyHasNewOvens = surveyHasNewOvens;
+        if (status) updatedData.status = status;
+        if (storeId) updatedData.storeId = { connect: { id: storeId } };
+        if (userId) updatedData.updatedBy = { connect: { id: userId } };
+
+        const updatedSurvey = await prisma.survey.update({
+            where: { id },
+            data: updatedData,
+        });
+
+        res.status(200).json({ message: 'Store Survey updated successfully', updatedSurvey });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Something went wrong' });
+    }
+};
+
+
+exports.deleteSurvey = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const surveyExist = await prisma.survey.findUnique({
+            where: { id: id },
+        });
+        if (!surveyExist) {
+            return res.status(404).json({ error: 'Store not found' });
+        }
+        await prisma.survey.delete({
+            where: { id: id },
+        });
+        res.status(200).json({ message: 'Survey deleted' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Something went wrong' });
+    }
+};
