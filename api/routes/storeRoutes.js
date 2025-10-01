@@ -3,6 +3,8 @@ const storeRouter = express.Router();
 
 const StoreController = require("../controllers/storeController");
 
+const authMiddleware = require("../middlewares/authAdminMiddleware");
+
 
 storeRouter.post('/', StoreController.createStore);
 storeRouter.get('/', StoreController.getAllStores);
@@ -13,3 +15,4 @@ storeRouter.delete('/:id', StoreController.deleteStore);
 
 module.exports = storeRouter;
 
+//authMiddleware.isAdmin, 

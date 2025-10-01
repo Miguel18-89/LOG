@@ -47,11 +47,38 @@ SMTP_PORT=25
 
 Discutir com o Nuno:
 
-1 - O id do survey, provisioning, phase1 and phase 2 deveria ser guardado na tabela de lojas para mais facil fazer o populate??
+1 - O id do survey, provisioning, phase1 and phase 2 deveria ser guardado na tabela de lojas para mais facil fazer o populate?? - Assim está certo.
 
-2 - A relação inversa das chaves estrangeiras serve para isso?
 
-3 - Os comentários por fase se calhar não fazem assim tanto sentido. Mais valia ter um "chat" de mensagens por loja.
 
-4 - Quando se apaga uma loja apaga respectivo survey, provisioning, phase1, phase2 e comentarios?
+2 - A relação inversa das chaves estrangeiras serve para isso? Sim
+
+
+
+3 - Os comentários por fase se calhar não fazem assim tanto sentido. Mais valia ter um "chat" de mensagens por loja. - sem mensagens por fase
+
+
+
+
+
+4 - Quando se apaga uma loja apaga respectivo survey, provisioning, phase1, phase2 e comentarios?  verificar delete on cascade com cuidado
+
+
+
+
+5 - Se enviar uma query com um dado errado no typo que parte o backend temos de o reiniciar manualmente. isso em produção é um
+    problema que devemos controlar antes de fazer a querie certo? - validar dados sempre antes das queries, procurar pacote para express
+
+
+
+
+    
+6 - Quando criar uma loja posso chamar tb os endpoints de criar survey, provisioning, phase1 e phase2 ----  so criar depois de dar update de algum dado se não existir cria, se existir actualiza
+
+
+7 - guardar dados no local storage - sem stress
+
+
+
+
 

@@ -39,7 +39,6 @@ model Store {
   storeNumber             Int            @unique
   storeAddress            String
   storeRegion             String
-  storeArea               Int
   storeInspectorName      String
   storeInspectorContact   Int
   created_at              DateTime       @default(now())
@@ -52,7 +51,7 @@ model Store {
   storeProvisioning       Provisioning[] @relation("ProvisioningFromStore")
   storePhase1             Phase1[]       @relation("Phase1FromStore")
   storePhase2             Phase2[]       @relation("Phase2FromStore")
-  commentsPhase2          Comments[]     @relation("CommentsFromStore") //Alterar este paramentro para "comments"
+  comments                Comments[]     @relation("CommentsFromStore") //Alterar este paramentro para "comments"
 }
 
 model Survey {

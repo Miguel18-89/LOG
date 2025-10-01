@@ -124,6 +124,8 @@ exports.updateSurvey = async (req, res) => {
     try {
         const { id } = req.params;
         const {
+            storeId,
+            userId,
             surveyHasFalseCeilling,
             surveyMetalFalseCeilling,
             surveyCheckoutCount,
@@ -140,47 +142,61 @@ exports.updateSurvey = async (req, res) => {
             surveyHasCodfish,
             surveyHasNewOvens,
             status,
-            storeId,
-            userId,
         } = req.body;
 
-        const surveyExist = await prisma.survey.findUnique({
-            where: { id },
-        });
+        const data = {
+            surveyHasFalseCeilling,
+            surveyMetalFalseCeilling,
+            surveyCheckoutCount,
+            surveyHasElectronicGates,
+            surveyArea,
+            surveyPhase1Date: surveyPhase1Date ? new Date(surveyPhase1Date) : null,
+            surveyPhase1Type,
+            surveyPhase2Date: surveyPhase2Date ? new Date(surveyPhase2Date) : null,
+            surveyPhase2Type,
+            surveyOpeningDate: surveyOpeningDate ? new Date(surveyOpeningDate) : null,
+            surveyHeadsets,
+            surveyHasBread,
+            surveyHasChicken,
+            surveyHasCodfish,
+            surveyHasNewOvens,
+            status,
+            ...(storeId && { store_id: storeId }),
+            ...(userId && { updatedBy: { connect: { id: userId } } })
 
-        if (!surveyExist) {
-            return res.status(404).json({ error: 'Store Survey not found' });
+        };
+
+        let surveyId = id;
+
+        if (!surveyId) {
+            console.log(storeId)
+            const existingSurvey = await prisma.survey.findFirst({
+                where: { store_id: storeId },
+            });
+            if (existingSurvey) {
+                surveyId = existingSurvey.id;
+            }
         }
 
-        const updatedData = {};
-        if (surveyHasFalseCeilling) updatedData.surveyHasFalseCeilling = surveyHasFalseCeilling;
-        if (surveyMetalFalseCeilling) updatedData.surveyMetalFalseCeilling = surveyMetalFalseCeilling;
-        if (surveyCheckoutCount) updatedData.surveyCheckoutCount = surveyCheckoutCount;
-        if (surveyHasElectronicGates) updatedData.surveyHasElectronicGates = surveyHasElectronicGates;
-        if (surveyArea) updatedData.surveyArea = surveyArea;
-        if (surveyPhase1Date) updatedData.surveyPhase1Date = surveyPhase1Date;
-        if (surveyPhase1Type) updatedData.surveyPhase1Type = surveyPhase1Type;
-        if (surveyPhase2Date) updatedData.surveyPhase2Date = surveyPhase2Date;
-        if (surveyPhase2Type) updatedData.surveyPhase2Type = surveyPhase2Type;
-        if (surveyOpeningDate) updatedData.surveyOpeningDate = surveyOpeningDate;
-        if (surveyHeadsets) updatedData.surveyHeadsets = surveyHeadsets;
-        if (surveyHasBread) updatedData.surveyHasBread = surveyHasBread;
-        if (surveyHasChicken) updatedData.surveyHasChicken = surveyHasChicken;
-        if (surveyHasCodfish) updatedData.surveyHasCodfish = surveyHasCodfish;
-        if (surveyHasNewOvens) updatedData.surveyHasNewOvens = surveyHasNewOvens;
-        if (status) updatedData.status = status;
-        if (storeId) updatedData.storeId = { connect: { id: storeId } };
-        if (userId) updatedData.updatedBy = { connect: { id: userId } };
+        let result;
+        if (surveyId) {
+            result = await prisma.survey.update({
+                where: { id: surveyId },
+                data,
+            });
+        } else {
+            console.log(data)
+            result = await prisma.survey.create({ data });
+        }
 
-        const updatedSurvey = await prisma.survey.update({
-            where: { id },
-            data: updatedData,
+        res.status(200).json({
+            message: 'Survey atualizado com sucesso',
+            survey: result,
         });
-
-        res.status(200).json({ message: 'Store Survey updated successfully', updatedSurvey });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Something went wrong' });
+    } catch (error) {
+        console.error(error);
+        console.log(error)
+        res.status(500).json({ error: 'Erro ao processar survey' });
     }
 };
 

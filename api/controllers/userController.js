@@ -65,7 +65,7 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, email, password } = req.body;
+        const { name, email, password, role } = req.body;
         const userExist = await prisma.user.findUnique({
             where: { id: id },
         });
@@ -75,6 +75,7 @@ exports.updateUser = async (req, res) => {
         const updatedData = {};
         if (name) updatedData.name = name;
         if (email) updatedData.email = email;
+        if (role) updatedData.role = role;
         if (password) {
             const saltRounds = 10;
             updatedData.password = await bcrypt.hash(password, saltRounds);
