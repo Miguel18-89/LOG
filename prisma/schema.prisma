@@ -75,21 +75,21 @@ model Survey {
   updated_at               DateTime  @updatedAt
   updated_by               String?
   updatedBy                User?     @relation("UpdatedByUser", fields: [updated_by], references: [id])
-  store_id                 String
+  store_id                 String    @unique
   storeId                  Store     @relation("surveyFromStore", fields: [store_id], references: [id])
 }
 
 model Provisioning {
   id                      String    @id @default(uuid())
   ordered                 Boolean?
-  trackingNumber          Int?
+  trackingNumber          String?
   received                Boolean?
   validated               Boolean?
   status                  Int       @default(0) //0=not init(red), 1=On the way(yellow), 2=Validated(green)
   updated_at              DateTime? @updatedAt
   updated_by              String?
   updatedBy               User?     @relation("UpdatedByUser", fields: [updated_by], references: [id])
-  store_id                String
+  store_id                String    @unique
   storeId                 Store     @relation("ProvisioningFromStore", fields: [store_id], references: [id])
 }
 
@@ -107,7 +107,7 @@ model Phase1 {
   updated_at              DateTime? @updatedAt
   updated_by              String?
   updatedBy               User?     @relation("UpdatedByUser", fields: [updated_by], references: [id])
-  store_id                String
+  store_id                String    @unique
   storeId                 Store     @relation("Phase1FromStore", fields: [store_id], references: [id])
 }
 
@@ -127,7 +127,7 @@ model Phase2 {
   updated_at              DateTime? @updatedAt
   updated_by              String?
   updatedBy               User?     @relation("UpdatedByUser", fields: [updated_by], references: [id])
-  store_id                String
+  store_id                String    @unique
   storeId                 Store     @relation("Phase2FromStore", fields: [store_id], references: [id])
 }
 

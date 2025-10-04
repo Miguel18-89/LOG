@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+
 exports.createStoreSurvey = async (req, res) => {
     try {
         const {
@@ -162,43 +163,38 @@ exports.updateSurvey = async (req, res) => {
             surveyHasNewOvens,
             status,
             ...(storeId && { store_id: storeId }),
-            ...(userId && { updatedBy: { connect: { id: userId } } })
-
+            updated_by: userId,
         };
 
-        let surveyId = id;
+        const surveyId = id || (
+            storeId
+                ? (await prisma.survey.findFirst({ where: { store_id: storeId } }))?.id
+                : null
+        );
 
-        if (!surveyId) {
-            console.log(storeId)
-            const existingSurvey = await prisma.survey.findFirst({
-                where: { store_id: storeId },
-            });
-            if (existingSurvey) {
-                surveyId = existingSurvey.id;
-            }
-        }
+        console.log('userId:', userId);
 
-        let result;
-        if (surveyId) {
-            result = await prisma.survey.update({
-                where: { id: surveyId },
-                data,
-            });
-        } else {
-            console.log(data)
-            result = await prisma.survey.create({ data });
-        }
+        const result = await prisma.survey.upsert({
+            where: { store_id: storeId },
+            update: data,
+            create: {
+                ...data,
+                store_id: storeId,
+                updated_by: userId,
+            },
+        });
+
 
         res.status(200).json({
-            message: 'Survey atualizado com sucesso',
+            message: 'Survey atualizado ou criado com sucesso',
             survey: result,
         });
     } catch (error) {
         console.error(error);
-        console.log(error)
         res.status(500).json({ error: 'Erro ao processar survey' });
     }
 };
+
 
 
 exports.deleteSurvey = async (req, res) => {

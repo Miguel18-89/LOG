@@ -66,6 +66,7 @@ exports.getStoreById = async (req, res) => {
             where: { id },
             include: {
                 storeSurveys: true,
+                storeProvisioning: true,
             },
         });
 
