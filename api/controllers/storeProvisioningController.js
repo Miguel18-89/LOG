@@ -43,9 +43,9 @@ exports.createStoreProvisioning = async (req, res) => {
             },
         });
 
-        res.status(201).json({ message: 'Survey created successfully', provisioning: newProvisioning });
+        res.status(201).json({ message: 'Provisioning created successfully', provisioning: newProvisioning });
     } catch (e) {
-        console.error('Erro ao criar loja:', e);
+        console.error('Erro ao criar aprovisionamento:', e);
         res.status(500).json('Something went wrong');
     }
 };
@@ -119,8 +119,7 @@ exports.updateProvisioning = async (req, res) => {
             validated,
             status,
             ...(storeId && { store_id: storeId }),
-            updated_by: userId
-            ,
+            updated_by: userId,
         };
 
         const provisioningId = id || (

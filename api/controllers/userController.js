@@ -12,7 +12,7 @@ exports.createUser = async (req, res) => {
         const emailExist = await prisma.user.findUnique({
             where: { email: email },
         });
-        if (emailExist){
+        if (emailExist) {
             res.status(500).json('Email already registered');
         }
         const saltRounds = 10;
@@ -44,23 +44,30 @@ exports.getAllUsers = async (req, res) => {
 }
 
 exports.getUserById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const user = await prisma.user.findUnique({
-            where: {
-                id: id,
-            },
-        });
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        const { password, ...userWithoutPassword } = user;
-        res.status(200).json({ user: userWithoutPassword });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Something went wrong' });
+  try {
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ name: 'Desconhecido' });
     }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ name: 'Desconhecido' });
+  }
 };
+
+
 
 exports.updateUser = async (req, res) => {
     try {
