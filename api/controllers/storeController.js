@@ -50,7 +50,15 @@ exports.createStore = async (req, res) => {
 
 exports.getAllStores = async (req, res) => {
     try {
-        const allStores = await prisma.store.findMany();
+        const allStores = await prisma.store.findMany({
+            include: {
+                storeSurveys: { select: { status: true } },
+                storeProvisioning: { select: { status: true } },
+                storePhase1: { select: { status: true } },
+                storePhase2: { select: { status: true } },
+            },
+        });
+
         res.status(200).json({ allStores });
     } catch (e) {
         console.error(e);

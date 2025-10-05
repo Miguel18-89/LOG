@@ -137,6 +137,7 @@ model Comments {
   storeId                 Store  @relation("CommentsFromStore", fields: [store_id], references: [id])
   created_by              String
   createdBy               User   @relation("CreatedByUser", fields: [created_by], references: [id])
-  phase                   Int //0=survey, 1=provisioning, 2=Phase1, 3=phase2  //Retirar o Phase???
+  created_at              DateTime? @default(now())
+  updated                 Boolean? @default(false)
   message                 String
 }
