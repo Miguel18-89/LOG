@@ -66,6 +66,118 @@ exports.getAllStores = async (req, res) => {
     }
 }
 
+exports.getAllCompletedStores = async (req, res) => {
+    try {
+        const allCompletedStores = await prisma.store.findMany({
+            where: {
+                storePhase2: {
+                    some: {
+                        status: 2,
+                    },
+                },
+            },
+
+            include: {
+                storeSurveys: { select: { status: true } },
+                storeProvisioning: { select: { status: true } },
+                storePhase1: { select: { status: true } },
+                storePhase2: { select: { status: true } },
+            },
+        });
+
+        res.status(200).json({ allCompletedStores });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Algo correu mal.' });
+    }
+}
+
+exports.getAllInProgressStores = async (req, res) => {
+    try {
+        const allInProgressStores = await prisma.store.findMany({
+            where: {
+                storePhase1: {
+                    some: {
+                        status: 1 || 2,
+                    },
+                },
+                storePhase2: {
+                    some: {
+                        status: {
+                            not: 2,
+                        },
+                    },
+                },
+
+            },
+
+            include: {
+                storeSurveys: { select: { status: true } },
+                storeProvisioning: { select: { status: true } },
+                storePhase1: { select: { status: true } },
+                storePhase2: { select: { status: true } },
+            },
+        });
+
+        res.status(200).json({ allInProgressStores });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Algo correu mal.' });
+    }
+}
+
+exports.getAllUpCommingStores = async (req, res) => {
+    try {
+        const allUpCommingStores = await prisma.store.findMany({
+            where: {
+                OR: [
+                    {
+                        storePhase1: {
+                            none: {}, // array vazio
+                        },
+                    },
+                    {
+                        storePhase1: {
+                            every: {
+                                status: {
+                                    notIn: [1, 2],
+                                },
+                            },
+                        },
+                    },
+                ],
+                OR: [
+                    {
+                        storePhase2: {
+                            none: {}, // array vazio
+                        },
+                    },
+                    {
+                        storePhase2: {
+                            every: {
+                                status: {
+                                    notIn: [1, 2],
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+            include: {
+                storePhase1: { select: { status: true } },
+                storePhase2: { select: { status: true } },
+                storeSurveys: { select: { status: true } },
+                storeProvisioning: { select: { status: true } },
+            },
+        });
+        res.status(200).json({ allUpCommingStores });
+    } catch (error) {
+        console.error('Erro ao buscar lojas futuras:', error);
+        res.status(500).json({ error: 'Erro ao buscar lojas futuras' });
+    }
+};
+
+
 
 exports.getStoreById = async (req, res) => {
     try {

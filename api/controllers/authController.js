@@ -19,6 +19,9 @@ exports.login = async (req, res) => {
     if (!user || !user.is_active) {
       return res.status(404).json('User not found');
     }
+    if (!user.approved) {
+      return res.status(404).json('O seu registo aguarda aprovação. Contacte o administrador.');
+    }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json('Invalid password');

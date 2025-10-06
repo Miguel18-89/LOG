@@ -7,6 +7,9 @@ const authMiddleware = require("../middlewares/authAdminMiddleware");
 
 
 storeRouter.post('/', StoreController.createStore);
+storeRouter.get('/completed', StoreController.getAllCompletedStores);
+storeRouter.get('/InProgress', StoreController.getAllInProgressStores);
+storeRouter.get('/UpComming', StoreController.getAllUpCommingStores);
 storeRouter.get('/', StoreController.getAllStores);
 storeRouter.get('/:id', StoreController.getStoreById);
 storeRouter.put('/:id', StoreController.updateStore);

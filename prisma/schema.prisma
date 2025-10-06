@@ -24,6 +24,7 @@ model User {
   updated_at              DateTime       @updatedAt
   resetToken              String?
   resetTokenExp           DateTime?
+  approved                Boolean        @default(false)
   createdStores           Store[]        @relation("CreatedByUser")
   updatedStores           Store[]        @relation("UpdatedByUser")
   updatedSurveys          Survey[]       @relation("UpdatedByUser")
@@ -51,7 +52,7 @@ model Store {
   storeProvisioning       Provisioning[] @relation("ProvisioningFromStore")
   storePhase1             Phase1[]       @relation("Phase1FromStore")
   storePhase2             Phase2[]       @relation("Phase2FromStore")
-  comments                Comments[]     @relation("CommentsFromStore") //Alterar este paramentro para "comments"
+  comments                Comments[]     @relation("CommentsFromStore") 
 }
 
 model Survey {
