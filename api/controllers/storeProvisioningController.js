@@ -122,13 +122,7 @@ exports.updateProvisioning = async (req, res) => {
             updated_by: userId,
         };
 
-        const provisioningId = id || (
-            storeId
-                ? (await prisma.provisioning.findFirst({ where: { store_id: storeId } }))?.id
-                : null
-        );
-
-        await prisma.provisioning.upsert({
+        const provisioning = await prisma.provisioning.upsert({
             where: { store_id: storeId },
             update: {
                 ordered,
@@ -153,12 +147,17 @@ exports.updateProvisioning = async (req, res) => {
                     connect: { id: userId }
                 },
             },
+            include: {
+                updatedBy: {
+                    select: { id: true, name: true }
+                },
+                storeId: {
+                    select: { id: true}
+                }
+            }
         });
 
-
-        res.status(200).json({
-            message: 'Provisioning atualizado ou criado com sucesso',
-        });
+        res.status(200).json(provisioning);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao processar provisioning' });

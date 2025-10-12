@@ -37,6 +37,9 @@ exports.createStore = async (req, res) => {
                 createdBy: {
                     connect: { id: userId },
                 },
+                updatedBy: {
+                    connect: { id: userId },
+                },
             },
         });
 
@@ -50,127 +53,161 @@ exports.createStore = async (req, res) => {
 
 exports.getAllStores = async (req, res) => {
     try {
-        const allStores = await prisma.store.findMany({
-            include: {
-                storeSurveys: { select: { status: true } },
-                storeProvisioning: { select: { status: true } },
-                storePhase1: { select: { status: true } },
-                storePhase2: { select: { status: true } },
-            },
-        });
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 10;
 
-        res.status(200).json({ allStores });
+        const [allStores, total] = await Promise.all([
+            prisma.store.findMany({
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                include: {
+                    storeSurveys: {
+                    select: {
+                        status: true,
+                        surveyOpeningDate: true, 
+                    },
+                },
+                    storeProvisioning: { select: { status: true } },
+                    storePhase1: { select: { status: true } },
+                    storePhase2: { select: { status: true } },
+                },
+                orderBy: { storeNumber: 'asc' },
+            }),
+            prisma.store.count(),
+        ]);
+
+        res.status(200).json({ allStores, total });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Algo correu mal.' });
     }
-}
+};
 
 exports.getAllCompletedStores = async (req, res) => {
     try {
-        const allCompletedStores = await prisma.store.findMany({
-            where: {
-                storePhase2: {
-                    some: {
-                        status: 2,
-                    },
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 10;
+
+        const whereCompletedStores = {
+            storePhase2: {
+                some: {
+                    status: 2,
                 },
             },
+        };
 
-            include: {
-                storeSurveys: { select: { status: true } },
-                storeProvisioning: { select: { status: true } },
-                storePhase1: { select: { status: true } },
-                storePhase2: { select: { status: true } },
-            },
-        });
+        const [allCompletedStores, total] = await Promise.all([
+            prisma.store.findMany({
+                where: whereCompletedStores,
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                include: {
+                    storeSurveys: {
+                    select: {
+                        status: true,
+                        surveyOpeningDate: true, 
+                    },
+                },
+                    storeProvisioning: { select: { status: true } },
+                    storePhase1: { select: { status: true } },
+                    storePhase2: { select: { status: true } },
+                },
+                orderBy: { storeNumber: 'asc' },
+            }),
+            prisma.store.count({ where: whereCompletedStores }),
+        ]);
 
-        res.status(200).json({ allCompletedStores });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Algo correu mal.' });
+        res.status(200).json({ allCompletedStores, total });
+    } catch (error) {
+        console.error('Erro ao buscar lojas concluídas:', error);
+        res.status(500).json({ error: 'Erro ao buscar lojas concluídas' });
     }
-}
+};
 
 exports.getAllInProgressStores = async (req, res) => {
     try {
-        const allInProgressStores = await prisma.store.findMany({
-            where: {
-                storePhase1: {
-                    some: {
-                        status: 1 || 2,
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 10;
+
+        const whereClause = {
+            storePhase1: {
+                some: {
+                    status: { in: [1, 2] },
+                },
+            },
+            storePhase2: {
+                every: {
+                    status: { not: 2 },
+                },
+            },
+        };
+
+        const [allInProgressStores, total] = await Promise.all([
+            prisma.store.findMany({
+                where: whereClause,
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                include: {
+                    storeSurveys: {
+                    select: {
+                        status: true,
+                        surveyOpeningDate: true, 
                     },
                 },
-                storePhase2: {
-                    some: {
-                        status: {
-                            not: 2,
-                        },
-                    },
+                    storeProvisioning: { select: { status: true } },
+                    storePhase1: { select: { status: true } },
+                    storePhase2: { select: { status: true } },
                 },
+                orderBy: { storeName: 'asc' }, // opcional
+            }),
+            prisma.store.count({ where: whereClause }),
+        ]);
 
-            },
-
-            include: {
-                storeSurveys: { select: { status: true } },
-                storeProvisioning: { select: { status: true } },
-                storePhase1: { select: { status: true } },
-                storePhase2: { select: { status: true } },
-            },
-        });
-
-        res.status(200).json({ allInProgressStores });
+        res.status(200).json({ allInProgressStores, total });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Algo correu mal.' });
     }
-}
+};
 
 exports.getAllUpCommingStores = async (req, res) => {
     try {
-        const allUpCommingStores = await prisma.store.findMany({
-            where: {
-                OR: [
-                    {
-                        storePhase1: {
-                            none: {}, // array vazio
-                        },
-                    },
-                    {
-                        storePhase1: {
-                            every: {
-                                status: {
-                                    notIn: [1, 2],
-                                },
-                            },
-                        },
-                    },
-                ],
-                OR: [
-                    {
-                        storePhase2: {
-                            none: {}, // array vazio
-                        },
-                    },
-                    {
-                        storePhase2: {
-                            every: {
-                                status: {
-                                    notIn: [1, 2],
-                                },
-                            },
-                        },
-                    },
-                ],
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 10;
+        const whereUpCommingStores = {
+            storePhase1: {
+                every: {
+                    status: { notIn: [1, 2] },
+                },
             },
+            storePhase2: {
+                every: {
+                    status: { notIn: [1, 2] },
+                },
+            },
+        };
+
+        const [allUpCommingStores, total] = await Promise.all([
+        prisma.store.findMany({
+            where: whereUpCommingStores,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
             include: {
+                storeSurveys: {
+                    select: {
+                        status: true,
+                        surveyOpeningDate: true, 
+                    },
+                },
+                storeProvisioning: { select: { status: true } },
                 storePhase1: { select: { status: true } },
                 storePhase2: { select: { status: true } },
-                storeSurveys: { select: { status: true } },
-                storeProvisioning: { select: { status: true } },
             },
-        });
-        res.status(200).json({ allUpCommingStores });
+        }),
+        prisma.store.count({ where: whereUpCommingStores }),
+        ]);
+
+        res.status(200).json({ allUpCommingStores, total });
     } catch (error) {
         console.error('Erro ao buscar lojas futuras:', error);
         res.status(500).json({ error: 'Erro ao buscar lojas futuras' });
@@ -189,6 +226,13 @@ exports.getStoreById = async (req, res) => {
                 storeProvisioning: true,
                 storePhase1: true,
                 storePhase2: true,
+                createdBy: {
+                    select: { name: true }
+                },
+                updatedBy: {
+                    select: { name: true }
+                }
+
             },
         });
 
@@ -240,7 +284,35 @@ exports.updateStore = async (req, res) => {
             data: updatedData,
         });
 
-        res.status(200).json({ message: 'Loja actualizada com sucesso', updatedStore });
+        const updatedStoreDetails = await prisma.store.findFirst({
+            where: { id },
+            include: {
+                storeSurveys: true,
+                storeProvisioning: true,
+                storePhase1: true,
+                storePhase2: true,
+                createdBy: {
+                    select: { name: true }
+                },
+                updatedBy: {
+                    select: { name: true }
+                }
+            }
+        });
+
+        const user = await prisma.user.findUnique({
+            where: { id: updatedStoreDetails?.updated_by },
+            select: { name: true },
+        });
+
+        res.status(200).json({
+            ...updatedStoreDetails,
+            updated_by: user,
+            updated_at: updatedStoreDetails?.updated_at,
+            updatedByName: user?.name ?? 'Desconhecido',
+        });
+
+        res.status(200).json(updatedStoreDetails);
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Algo correu mal' });

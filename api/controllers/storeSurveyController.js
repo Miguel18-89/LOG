@@ -185,10 +185,7 @@ exports.updateSurvey = async (req, res) => {
         });
 
 
-        res.status(200).json({
-            message: 'Survey atualizado ou criado com sucesso',
-            survey: result,
-        });
+        res.status(200).json(result);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao processar survey' });

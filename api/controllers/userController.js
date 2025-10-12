@@ -94,7 +94,7 @@ exports.updateUser = async (req, res) => {
                 where: {
                     role: 2,
                     id: { not: id } ,
-                    is_active: true, // se usares este campo
+                    is_active: true,
                 },
             });
 

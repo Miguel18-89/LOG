@@ -174,15 +174,27 @@ exports.updatePhase1 = async (req, res) => {
                     connect: { id: storeId }
                 },
                 updatedBy: {
-                    connect: { id: userId }
+                    connect: { id: userId}
                 },
             },
         });
 
 
-        res.status(200).json({
-            message: '1ª fase atualizada ou criada com sucesso',
+        const updatedPhase1 = await prisma.phase1.findFirst({
+            where: { store_id: storeId },
         });
+
+        const user = await prisma.user.findUnique({
+            where: { id: updatedPhase1?.updated_by },
+            select: { name: true },
+        });
+
+        res.status(200).json({
+            ...updatedPhase1,
+            updated_by: updatedPhase1?.updated_by,
+            updated_at: updatedPhase1?.updated_at,
+            updatedByName: user?.name ?? 'Desconhecido',
+        }); 
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao processar 1ª Fase' });
