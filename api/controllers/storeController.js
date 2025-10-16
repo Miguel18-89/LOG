@@ -55,30 +55,52 @@ exports.getAllStores = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.pageSize) || 10;
+        const rawSearch = req.query.search?.trim() || '';
+
+        const whereClause = rawSearch
+            ? {
+                OR: [
+                    { storeName: { contains: rawSearch, mode: 'insensitive' } },
+                    {
+                        storeNumber: {
+                            in: await prisma.store.findMany({
+                                select: { storeNumber: true },
+                            }).then((stores) =>
+                                stores
+                                    .map((s) => s.storeNumber)
+                                    .filter((num) => num.toString().includes(rawSearch))
+                            ),
+                        },
+                    },
+                ],
+            }
+            : {};
+
 
         const [allStores, total] = await Promise.all([
             prisma.store.findMany({
+                where: whereClause,
                 skip: (page - 1) * pageSize,
                 take: pageSize,
                 include: {
                     storeSurveys: {
-                    select: {
-                        status: true,
-                        surveyOpeningDate: true, 
+                        select: {
+                            status: true,
+                            surveyOpeningDate: true,
+                        },
                     },
-                },
                     storeProvisioning: { select: { status: true } },
                     storePhase1: { select: { status: true } },
                     storePhase2: { select: { status: true } },
                 },
                 orderBy: { storeNumber: 'asc' },
             }),
-            prisma.store.count(),
+            prisma.store.count({ where: whereClause }),
         ]);
 
         res.status(200).json({ allStores, total });
     } catch (e) {
-        console.error(e);
+        console.error('Erro ao buscar lojas:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
     }
 };
@@ -103,11 +125,11 @@ exports.getAllCompletedStores = async (req, res) => {
                 take: pageSize,
                 include: {
                     storeSurveys: {
-                    select: {
-                        status: true,
-                        surveyOpeningDate: true, 
+                        select: {
+                            status: true,
+                            surveyOpeningDate: true,
+                        },
                     },
-                },
                     storeProvisioning: { select: { status: true } },
                     storePhase1: { select: { status: true } },
                     storePhase2: { select: { status: true } },
@@ -149,11 +171,11 @@ exports.getAllInProgressStores = async (req, res) => {
                 take: pageSize,
                 include: {
                     storeSurveys: {
-                    select: {
-                        status: true,
-                        surveyOpeningDate: true, 
+                        select: {
+                            status: true,
+                            surveyOpeningDate: true,
+                        },
                     },
-                },
                     storeProvisioning: { select: { status: true } },
                     storePhase1: { select: { status: true } },
                     storePhase2: { select: { status: true } },
@@ -188,23 +210,23 @@ exports.getAllUpCommingStores = async (req, res) => {
         };
 
         const [allUpCommingStores, total] = await Promise.all([
-        prisma.store.findMany({
-            where: whereUpCommingStores,
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-            include: {
-                storeSurveys: {
-                    select: {
-                        status: true,
-                        surveyOpeningDate: true, 
+            prisma.store.findMany({
+                where: whereUpCommingStores,
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                include: {
+                    storeSurveys: {
+                        select: {
+                            status: true,
+                            surveyOpeningDate: true,
+                        },
                     },
+                    storeProvisioning: { select: { status: true } },
+                    storePhase1: { select: { status: true } },
+                    storePhase2: { select: { status: true } },
                 },
-                storeProvisioning: { select: { status: true } },
-                storePhase1: { select: { status: true } },
-                storePhase2: { select: { status: true } },
-            },
-        }),
-        prisma.store.count({ where: whereUpCommingStores }),
+            }),
+            prisma.store.count({ where: whereUpCommingStores }),
         ]);
 
         res.status(200).json({ allUpCommingStores, total });
