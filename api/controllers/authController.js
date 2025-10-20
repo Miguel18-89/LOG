@@ -7,39 +7,47 @@ const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 
-exports.login = async (req, res) => {
+ exports.login = async (req, res) => {
   const { email, password } = req.body;
+
   if (!email || !password) {
-    return res.status(400).json('Email and password required');
+    return res.status(400).json({ error: 'Email e password são obrigatórios.' });
   }
+
   try {
     const user = await prisma.user.findUnique({
       where: { email },
     });
+
     if (!user || !user.is_active) {
-      return res.status(404).json('User not found');
+      return res.status(404).json({ error: 'Utilizador não encontrado.' });
     }
+
     if (!user.approved) {
-      return res.status(404).json('O seu registo aguarda aprovação. Contacte o administrador.');
+      return res.status(403).json({ error: 'O seu registo aguarda aprovação. Contacte o administrador.' });
     }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json('Invalid password');
+      return res.status(401).json({ error: 'Password inválida.' });
     }
+
     const token = jwt.sign(
       { id: user.id, email: user.email },
       JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
+
     const { password: _, ...userWithoutPassword } = user;
+
     res.status(200).json({
-      message: 'Login successful',
+      message: 'Login realizado com sucesso.',
       user: userWithoutPassword,
       token,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 };
 

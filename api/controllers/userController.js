@@ -1,30 +1,70 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
+const { sendEmail } = require("../modules/email")
 
 const prisma = new PrismaClient();
 
 exports.createUser = async (req, res) => {
     try {
         const { name, email, password } = req.body;
+
         if (!name || !email || !password) {
             return res.status(400).json('Name, email and password are required');
         }
-        const emailExist = await prisma.user.findUnique({
-            where: { email: email },
+
+        const existingUser = await prisma.user.findUnique({
+            where: { email },
         });
-        if (emailExist) {
-            res.status(500).json('Email already registered');
+
+        if (existingUser && existingUser.is_active === true) {
+            return res.status(409).json('Email already registered');
         }
+
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        await prisma.user.create({
-            data: {
-                name,
-                email,
-                password: hashedPassword,
-            },
+
+        if (existingUser && existingUser.is_active === false) {
+            await prisma.user.update({
+                where: { email },
+                data: {
+                    name,
+                    password: hashedPassword,
+                    role: 0,
+                    is_active: true,
+                    approved: false
+                },
+            });
+        } else {
+            await prisma.user.create({
+                data: {
+                    name,
+                    email,
+                    password: hashedPassword,
+                    role: 0,
+                    is_active: true,
+                    approved: false
+                },
+            });
+        }
+
+        await sendEmail(
+            email,
+            'Novo registo',
+            'Registo efetuado com sucesso. Aguarda aprovação pelo administrador. Será notificado quando aprovado.'
+        );
+
+        const admins = await prisma.user.findMany({
+            where: { role: 2 },
+            select: { email: true },
         });
-        res.status(201).json("User created successfully");
+
+        await Promise.all(
+            admins.map(admin =>
+                sendEmail(admin.email, 'Novo utilizador registado', `Novo utilizador registado:\n\nNome: ${name}\nEmail: ${email}\n\nEstado: Pendente de aprovação.`)
+            )
+        );
+
+        return res.status(201).json({ message: 'Utilizador criado ou reativado com sucesso. Emails enviados.' });
     } catch (e) {
         console.error(e);
         res.status(500).json('Something went wrong');
@@ -73,37 +113,46 @@ exports.getUserById = async (req, res) => {
     }
 };
 
-
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, email, password, role, approved } = req.body;
 
         const userExist = await prisma.user.findUnique({
-            where: { id: id },
+            where: { id },
         });
 
         if (!userExist) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        const isRemovingAdmin = userExist.role === 2 && role !== 2;
+        if (name && req.user.id !== id && req.user.role !== 2) {
+            return res.status(403).json({
+                error: 'Só o próprio utilizador ou um administrador pode alterar o nome.',
+            });
+        }
 
-        if (isRemovingAdmin) {
+        const isTryingToChangeAdminStatus =
+            userExist.role === 2 &&
+            ((role !== undefined && role !== 2) || (approved !== undefined && !approved));
+
+        if (isTryingToChangeAdminStatus) {
             const otherAdmins = await prisma.user.count({
                 where: {
                     role: 2,
-                    id: { not: id } ,
+                    id: { not: id },
                     is_active: true,
                 },
             });
 
             if (otherAdmins === 0) {
                 return res.status(403).json({
-                    error: 'Não é possível remover o único administrador ativo.',
+                    error: 'Não é possível alterar o papel ou aprovação do único administrador ativo.',
                 });
             }
         }
+
+        const approvedUser = approved === true && userExist.approved === false;
 
         const updatedData = {};
         if (name) updatedData.name = name;
@@ -116,9 +165,17 @@ exports.updateUser = async (req, res) => {
         }
 
         const updatedUser = await prisma.user.update({
-            where: { id: id },
+            where: { id },
             data: updatedData,
         });
+
+        if (approvedUser) {
+            await sendEmail(
+                updatedUser.email,
+                'Conta aprovada',
+                `Olá ${updatedUser.name},\n\nA sua conta foi aprovada pelo administrador e já pode aceder à plataforma LOG.\n\nCumprimentos,\nEquipa LOG`
+            );
+        }
 
         const { password: _, ...userWithoutPassword } = updatedUser;
         res.status(200).json({
@@ -130,8 +187,6 @@ exports.updateUser = async (req, res) => {
         res.status(500).json({ error: 'Something went wrong' });
     }
 };
-
-
 
 exports.deleteUser = async (req, res) => {
     try {

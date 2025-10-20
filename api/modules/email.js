@@ -11,9 +11,9 @@ exports.sendEmail = async (to, subject, message) => {
     });
 
     const mailOptions = {
-        from: "log@emg.com.pt",
+        from: "LOG",
         to: to,
-        subejct: subject,
+        subject: subject,
         text: message
     }
 

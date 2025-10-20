@@ -2,9 +2,21 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+const { createSurveySchema } = require('../schemas/surveySchema.js');
+
+const { updateSurveySchema } = require('../schemas/surveySchema.js');
 
 exports.createStoreSurvey = async (req, res) => {
     try {
+        const parseResult = createSurveySchema.safeParse(req.body);
+
+        if (!parseResult.success) {
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
+
         const {
             surveyHasFalseCeilling,
             surveyMetalFalseCeilling,
@@ -24,18 +36,14 @@ exports.createStoreSurvey = async (req, res) => {
             status,
             storeId,
             userId,
-        } = req.body;
-
-        if (!storeId || !userId) {
-            return res.status(400).json('Store Id and User Id required');
-        }
+        } = parseResult.data;
 
         const storeIdExist = await prisma.store.findUnique({
             where: { id: storeId },
         });
 
         if (!storeIdExist) {
-            return res.status(404).json('Store not found');
+            return res.status(404).json({ error: 'Loja não encontrada' });
         }
 
         const newSurvey = await prisma.survey.create({
@@ -44,7 +52,7 @@ exports.createStoreSurvey = async (req, res) => {
                 surveyMetalFalseCeilling,
                 surveyCheckoutCount,
                 surveyHasElectronicGates,
-                surveyArea: surveyArea ? Number(surveyArea) : null,
+                surveyArea,
                 surveyPhase1Date,
                 surveyPhase1Type,
                 surveyPhase2Date,
@@ -55,20 +63,16 @@ exports.createStoreSurvey = async (req, res) => {
                 surveyHasChicken,
                 surveyHasCodfish,
                 surveyHasNewOvens,
-                storeId,
-                updatedBy: {
-                    connect: { id: userId },
-                },
-                storeId: {
-                    connect: { id: storeId },
-                },
+                status,
+                storeId: { connect: { id: storeId } },
+                updatedBy: { connect: { id: userId } },
             },
         });
 
-        res.status(201).json({ message: 'Survey created successfully', survey: newSurvey });
+        res.status(201).json({ message: 'Survey criado com sucesso', survey: newSurvey });
     } catch (e) {
-        console.error('Erro ao criar loja:', e);
-        res.status(500).json('Something went wrong');
+        console.error('Erro ao criar survey:', e);
+        res.status(500).json({ error: 'Algo correu mal' });
     }
 };
 
@@ -124,6 +128,15 @@ exports.getSurveyByStoreId = async (req, res) => {
 exports.updateSurvey = async (req, res) => {
     try {
         const { id } = req.params;
+
+        const parseResult = updateSurveySchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
+
         const {
             storeId,
             userId,
@@ -143,7 +156,7 @@ exports.updateSurvey = async (req, res) => {
             surveyHasCodfish,
             surveyHasNewOvens,
             status,
-        } = req.body;
+        } = parseResult.data;
 
         const data = {
             surveyHasFalseCeilling,
@@ -151,11 +164,11 @@ exports.updateSurvey = async (req, res) => {
             surveyCheckoutCount,
             surveyHasElectronicGates,
             surveyArea,
-            surveyPhase1Date: surveyPhase1Date ? new Date(surveyPhase1Date) : null,
+            surveyPhase1Date,
             surveyPhase1Type,
-            surveyPhase2Date: surveyPhase2Date ? new Date(surveyPhase2Date) : null,
+            surveyPhase2Date,
             surveyPhase2Type,
-            surveyOpeningDate: surveyOpeningDate ? new Date(surveyOpeningDate) : null,
+            surveyOpeningDate,
             surveyHeadsets,
             surveyHasBread,
             surveyHasChicken,
@@ -172,8 +185,6 @@ exports.updateSurvey = async (req, res) => {
                 : null
         );
 
-        console.log('userId:', userId);
-
         const result = await prisma.survey.upsert({
             where: { store_id: storeId },
             update: data,
@@ -184,13 +195,13 @@ exports.updateSurvey = async (req, res) => {
             },
         });
 
-
         res.status(200).json(result);
     } catch (error) {
-        console.error(error);
+        console.error('Erro ao atualizar survey:', error);
         res.status(500).json({ error: 'Erro ao processar survey' });
     }
 };
+
 
 
 

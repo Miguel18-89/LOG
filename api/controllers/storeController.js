@@ -2,8 +2,22 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+const { createStoreSchema } = require('../schemas/storeSchema.js');
+const { updateStoreSchema } = require( '../schemas/storeSchema.js');
+
+
+
 exports.createStore = async (req, res) => {
     try {
+        const parseResult = createStoreSchema.safeParse(req.body);
+
+        if (!parseResult.success) {
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
+
         const {
             storeName,
             storeNumber,
@@ -11,42 +25,43 @@ exports.createStore = async (req, res) => {
             storeRegion,
             storeInspectorName,
             storeInspectorContact,
-            userId
-        } = req.body;
-
-        if (!storeName || !storeNumber || !userId) {
-            return res.status(400).json('Name, number, and userId are required');
-        }
+            createdById,
+        } = parseResult.data;
 
         const storeNumberExist = await prisma.store.findUnique({
-            where: { storeNumber: Number(storeNumber) },
+            where: { storeNumber },
         });
 
         if (storeNumberExist) {
-            return res.status(409).json('O número de loja iserido já existe.');
+            return res.status(409).json({ error: 'O número de loja inserido já existe.' });
         }
+
+        const userExists = await prisma.user.findUnique({
+            where: { id: createdById },
+        });
+
+        if (!userExists) {
+            return res.status(404).json({ error: 'Usuário não encontrado. Verifique o ID.' });
+        }
+
 
         const newStore = await prisma.store.create({
             data: {
                 storeName,
-                storeNumber: Number(storeNumber),
+                storeNumber,
                 storeAddress,
                 storeRegion,
                 storeInspectorName,
-                storeInspectorContact: storeInspectorContact ? Number(storeInspectorContact) : null,
-                createdBy: {
-                    connect: { id: userId },
-                },
-                updatedBy: {
-                    connect: { id: userId },
-                },
+                storeInspectorContact,
+                createdBy: { connect: { id: createdById } },
+                updatedBy: { connect: { id: createdById } },
             },
         });
 
         res.status(201).json({ message: 'Loja criada com sucesso', store: newStore });
     } catch (e) {
         console.error('Erro ao criar loja:', e);
-        res.status(500).json('Algo correu mal.');
+        res.status(500).json({ error: 'Algo correu mal.' });
     }
 };
 
@@ -272,6 +287,15 @@ exports.getStoreById = async (req, res) => {
 exports.updateStore = async (req, res) => {
     try {
         const { id } = req.params;
+
+        const parseResult = updateStoreSchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
+
         const {
             storeName,
             storeNumber,
@@ -280,13 +304,10 @@ exports.updateStore = async (req, res) => {
             storeArea,
             storeInspectorName,
             storeInspectorContact,
-            userId
-        } = req.body;
+            userId,
+        } = parseResult.data;
 
-        const storeExist = await prisma.store.findUnique({
-            where: { id },
-        });
-
+        const storeExist = await prisma.store.findUnique({ where: { id } });
         if (!storeExist) {
             return res.status(404).json({ error: 'Loja não encontrada' });
         }
@@ -299,9 +320,9 @@ exports.updateStore = async (req, res) => {
         if (storeArea) updatedData.storeArea = storeArea;
         if (storeInspectorName) updatedData.storeInspectorName = storeInspectorName;
         if (storeInspectorContact) updatedData.storeInspectorContact = storeInspectorContact;
-        if (userId) updatedData.updatedBy = { connect: { id: user.Id } };
+        if (userId) updatedData.updatedBy = { connect: { id: userId } };
 
-        const updatedStore = await prisma.store.update({
+        await prisma.store.update({
             where: { id },
             data: updatedData,
         });
@@ -313,30 +334,17 @@ exports.updateStore = async (req, res) => {
                 storeProvisioning: true,
                 storePhase1: true,
                 storePhase2: true,
-                createdBy: {
-                    select: { name: true }
-                },
-                updatedBy: {
-                    select: { name: true }
-                }
-            }
-        });
-
-        const user = await prisma.user.findUnique({
-            where: { id: updatedStoreDetails?.updated_by },
-            select: { name: true },
+                createdBy: { select: { name: true } },
+                updatedBy: { select: { name: true } },
+            },
         });
 
         res.status(200).json({
             ...updatedStoreDetails,
-            updated_by: user,
-            updated_at: updatedStoreDetails?.updated_at,
-            updatedByName: user?.name ?? 'Desconhecido',
+            updatedByName: updatedStoreDetails?.updatedBy?.name ?? 'Desconhecido',
         });
-
-        res.status(200).json(updatedStoreDetails);
     } catch (e) {
-        console.error(e);
+        console.error('Erro ao atualizar loja:', e);
         res.status(500).json({ error: 'Algo correu mal' });
     }
 };

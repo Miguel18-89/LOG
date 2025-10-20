@@ -2,18 +2,19 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+const { createProvisioningSchema } = require('../schemas/provisioningSchema.js');
 
 exports.createStoreProvisioning = async (req, res) => {
     try {
-        const {
-            ordered,
-            trackingNumber,
-            received,
-            validated,
-            status,
-            storeId,
-            userId,
-        } = req.body;
+        const parseResult = createProvisioningSchema.safeParse(req.body);
+
+        if (!parseResult.success) {
+            console.log("aqui")
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
 
         if (!storeId || !userId) {
             return res.status(400).json('Store Id and User Id required');
@@ -43,13 +44,15 @@ exports.createStoreProvisioning = async (req, res) => {
             },
         });
 
-        res.status(201).json({ message: 'Provisioning created successfully', provisioning: newProvisioning });
+        res.status(201).json({
+            message: 'Provisioning created successfully',
+            provisioning: newProvisioning,
+        });
     } catch (e) {
-        console.error('Erro ao criar aprovisionamento:', e);
-        res.status(500).json('Something went wrong');
+        console.error('Erro ao criar survey:', e);
+        res.status(500).json({ error: 'Algo correu mal' });
     }
 };
-
 
 exports.getAllProvisionings = async (req, res) => {
     try {
@@ -60,7 +63,6 @@ exports.getAllProvisionings = async (req, res) => {
         res.status(500).json({ error: 'Something went wrong' });
     }
 }
-
 
 exports.getProvisioningById = async (req, res) => {
     try {
@@ -98,10 +100,17 @@ exports.getProvisioningByStoreId = async (req, res) => {
     }
 };
 
-
 exports.updateProvisioning = async (req, res) => {
     try {
-        const { id } = req.params;
+        const parseResult = createProvisioningSchema.safeParse(req.body);
+
+        if (!parseResult.success) {
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
+
         const {
             storeId,
             userId,
@@ -110,17 +119,7 @@ exports.updateProvisioning = async (req, res) => {
             received,
             validated,
             status,
-        } = req.body;
-
-        const data = {
-            ordered,
-            trackingNumber,
-            received,
-            validated,
-            status,
-            ...(storeId && { store_id: storeId }),
-            updated_by: userId,
-        };
+        } = parseResult.data;
 
         const provisioning = await prisma.provisioning.upsert({
             where: { store_id: storeId },
@@ -130,9 +129,7 @@ exports.updateProvisioning = async (req, res) => {
                 received,
                 validated,
                 status,
-                updatedBy: {
-                    connect: { id: userId }
-                },
+                updatedBy: userId,
             },
             create: {
                 ordered,
@@ -141,30 +138,23 @@ exports.updateProvisioning = async (req, res) => {
                 validated,
                 status,
                 storeId: {
-                    connect: { id: storeId }
-                },
-                updatedBy: {
-                    connect: { id: userId }
-                },
+                        connect: { id: storeId },
+                    },
+
+        updatedBy: userId,
             },
             include: {
-                updatedBy: {
-                    select: { id: true, name: true }
-                },
-                storeId: {
-                    select: { id: true}
-                }
-            }
+                updatedBy: { select: { id: true, name: true } },
+                storeId: { select: { id: true } },
+            },
         });
 
         res.status(200).json(provisioning);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao processar provisioning' });
+        console.error('Erro ao atualizar provisioning:', error);
+        res.status(500).json({ error: error.message || 'Erro ao processar provisioning' });
     }
 };
-
-
 
 exports.deleteProvisioning = async (req, res) => {
     try {

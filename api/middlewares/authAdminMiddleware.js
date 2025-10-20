@@ -18,14 +18,14 @@ exports.requireAuthorization = async (req, res, next) => {
 
 
         const user = await prisma.user.findUnique({
-            where: { id: id },
+            where: { id: payload.id },
         });
         if (!user) {
             return res.status(401).json({ error: "unauthorized2" })
         }
 
-        if (user.checkChangePasswordAt(payload.iat)) {
-            return res.status(498).json({ error: "Token expired" })
+        if (user.passwordChangedAt && payload.iat * 1000 < user.passwordChangedAt.getTime()) {
+            return res.status(498).json({ error: "Token expirado após alteração de senha" });
         }
         req.user = user;
         next();

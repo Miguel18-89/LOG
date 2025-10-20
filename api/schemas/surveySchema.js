@@ -1,0 +1,43 @@
+import { z } from 'zod';
+
+export const createSurveySchema = z.object({
+    surveyHasFalseCeilling: z.boolean().optional(),
+    surveyMetalFalseCeilling: z.boolean().optional(),
+    surveyCheckoutCount: z.coerce.number().int().nonnegative().optional(),
+    surveyHasElectronicGates: z.boolean().optional(),
+    surveyArea: z.coerce.number().int().positive().optional(),
+    surveyPhase1Date: z.coerce.date().optional(),
+    surveyPhase1Type: z.string().min(1).optional(),
+    surveyPhase2Date: z.coerce.date().optional(),
+    surveyPhase2Type: z.string().min(1).optional(),
+    surveyOpeningDate: z.coerce.date().optional(),
+    surveyHeadsets: z.string().min(1).optional(),
+    surveyHasBread: z.boolean().optional(),
+    surveyHasChicken: z.boolean().optional(),
+    surveyHasCodfish: z.boolean().optional(),
+    surveyHasNewOvens: z.boolean().optional(),
+    status: z.coerce.number().int().min(0).max(2).optional(),
+    updated_by: z.string().uuid().optional(),
+    storeId: z.string().uuid({ message: 'ID da loja inválido' }),
+});
+
+export const updateSurveySchema = z.object({
+    surveyHasFalseCeilling: z.boolean().optional(),
+    surveyMetalFalseCeilling: z.boolean().optional(),
+    surveyCheckoutCount: z.coerce.number().int().nonnegative().optional(),
+    surveyHasElectronicGates: z.boolean().optional(),
+    surveyArea: z.coerce.number().int().positive().optional(),
+    surveyPhase1Date: z.coerce.date().optional(),
+    surveyPhase1Type: z.string().min(1).optional(),
+    surveyPhase2Date: z.coerce.date().optional(),
+    surveyPhase2Type: z.string().min(1).optional(),
+    surveyOpeningDate: z.coerce.date().optional(),
+    surveyHeadsets: z.string().min(1).optional(),
+    surveyHasBread: z.boolean().optional(),
+    surveyHasChicken: z.boolean().optional(),
+    surveyHasCodfish: z.boolean().optional(),
+    surveyHasNewOvens: z.boolean().optional(),
+    status: z.coerce.number().int().min(0).max(2).optional(),
+    storeId: z.string().uuid({ message: 'ID da loja inválido' }),
+    userId: z.string().uuid().optional(),
+});

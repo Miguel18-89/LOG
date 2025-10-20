@@ -11,7 +11,7 @@ storeRouter.get('/completed', authMiddleware.requireAuthorization, StoreControll
 storeRouter.get('/InProgress', authMiddleware.requireAuthorization, StoreController.getAllInProgressStores);
 storeRouter.get('/UpComming', authMiddleware.requireAuthorization, StoreController.getAllUpCommingStores);
 storeRouter.get('/', authMiddleware.requireAuthorization, StoreController.getAllStores);
-storeRouter.get('/:id', authMiddleware.requireAuthorization, StoreController.getStoreById);
+storeRouter.get('/:id', StoreController.getStoreById);
 storeRouter.put('/:id', authMiddleware.requireAuthorization, authMiddleware.isManager, StoreController.updateStore);
 storeRouter.delete('/:id', authMiddleware.requireAuthorization, authMiddleware.isManager, StoreController.deleteStore);
 

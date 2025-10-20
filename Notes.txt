@@ -63,11 +63,38 @@ Discutir com o Nuno:
 
 7 - guardar dados no local storage - sem stress
 
-/////////////// Novos ////////////////
+8 - faz sentido ter endpoints para criar e para apagar survey, provisioning, phase1 & phase2 ?? - Não faz sentido mas não vale a pena.
 
-8 - faz sentido ter endpoints para criar e para apagar survey, provisioning, phase1 & phase2??
+9 - Middleware requireAuthorization podia se colocado na rota principal de cada endpoint no server.js ?? - sim mas não está a enviar o token no Get.
 
-9 - Middleware requireAuthorization podia se colocado na rota principla de cada endpoint no server.js ??
+10 - mensagens no frontend mostradas ao user podem ou devem ou vem do backend ?? - toast mensagens "bonitas"
+
+11 - Get or getByid não retorna resultados se tiver o Middleware requireAuthorization.  - ver HTTP Interceptor for react.
+
+12 - Criar endpoint e frontend para user delete - 
+
+13 - como proteger a alteração do role e aprovação do user pelo admin ?? - não verificar por middlewhare, colocar dentro do endpoint a validação se é admin.
+
+
+///////Duvidas/////
+
+14 - Devo criar validações para os comentários e users??
+
+/////outras////
+
+adicionar documentos
+
+pesquisa nos separadores de lojas completas, em curso e proximas
+
+email com html bem formatado
+
+paginação e pesquisa nos utilizadores
+
+Ajustar a FHD
+
+
+
+
 
 
 
