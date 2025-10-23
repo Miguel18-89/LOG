@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const { createStoreSchema } = require('../schemas/storeSchema.js');
-const { updateStoreSchema } = require( '../schemas/storeSchema.js');
+const { updateStoreSchema } = require('../schemas/storeSchema.js');
 
 
 
@@ -61,7 +61,7 @@ exports.createStore = async (req, res) => {
         res.status(201).json({ message: 'Loja criada com sucesso', store: newStore });
     } catch (e) {
         console.error('Erro ao criar loja:', e);
-        res.status(500).json({ error: 'Algo correu mal.' });
+        res.status(500).json({ error: 'Something went wrong' });
     }
 };
 
@@ -124,13 +124,43 @@ exports.getAllCompletedStores = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.pageSize) || 10;
+        const rawSearch = req.query.search?.trim() || '';
 
         const whereCompletedStores = {
-            storePhase2: {
-                some: {
-                    status: 2,
+            AND: [
+                {
+                    storePhase2: {
+                        some: {
+                            status: 2,
+                        },
+                    },
                 },
-            },
+                rawSearch
+                    ? {
+                        OR: [
+                            {
+                                storeName: {
+                                    contains: rawSearch,
+                                    mode: 'insensitive',
+                                },
+                            },
+                            {
+                                storeNumber: {
+                                    in: await prisma.store
+                                        .findMany({ select: { storeNumber: true } })
+                                        .then((stores) =>
+                                            stores
+                                                .map((s) => s.storeNumber)
+                                                .filter((num) =>
+                                                    num.toString().includes(rawSearch)
+                                                )
+                                        ),
+                                },
+                            },
+                        ],
+                    }
+                    : {},
+            ],
         };
 
         const [allCompletedStores, total] = await Promise.all([
@@ -165,23 +195,55 @@ exports.getAllInProgressStores = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.pageSize) || 10;
+        const rawSearch = req.query.search?.trim() || '';
 
-        const whereClause = {
-            storePhase1: {
-                some: {
-                    status: { in: [1, 2] },
+        const whereInProgressStores = {
+            AND: [
+                {
+                    storePhase1: {
+                        some: {
+                            status: { in: [1, 2] },
+                        },
+                    },
                 },
-            },
-            storePhase2: {
-                every: {
-                    status: { not: 2 },
+                {
+                    storePhase2: {
+                        every: {
+                            status: { not: 2 },
+                        },
+                    },
                 },
-            },
+                rawSearch
+                    ? {
+                        OR: [
+                            {
+                                storeName: {
+                                    contains: rawSearch,
+                                    mode: 'insensitive',
+                                },
+                            },
+                            {
+                                storeNumber: {
+                                    in: await prisma.store
+                                        .findMany({ select: { storeNumber: true } })
+                                        .then((stores) =>
+                                            stores
+                                                .map((s) => s.storeNumber)
+                                                .filter((num) =>
+                                                    num.toString().includes(rawSearch)
+                                                )
+                                        ),
+                                },
+                            },
+                        ],
+                    }
+                    : {},
+            ],
         };
 
         const [allInProgressStores, total] = await Promise.all([
             prisma.store.findMany({
-                where: whereClause,
+                where: whereInProgressStores,
                 skip: (page - 1) * pageSize,
                 take: pageSize,
                 include: {
@@ -195,9 +257,9 @@ exports.getAllInProgressStores = async (req, res) => {
                     storePhase1: { select: { status: true } },
                     storePhase2: { select: { status: true } },
                 },
-                orderBy: { storeName: 'asc' }, // opcional
+                orderBy: { storeName: 'asc' },
             }),
-            prisma.store.count({ where: whereClause }),
+            prisma.store.count({ where: whereInProgressStores }),
         ]);
 
         res.status(200).json({ allInProgressStores, total });
@@ -211,17 +273,50 @@ exports.getAllUpCommingStores = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.pageSize) || 10;
+        const rawSearch = req.query.search?.trim() || '';
+
         const whereUpCommingStores = {
-            storePhase1: {
-                every: {
-                    status: { notIn: [1, 2] },
+            AND: [
+                {
+                    storePhase1: {
+                        every: {
+                            status: { notIn: [1, 2] },
+                        },
+                    },
                 },
-            },
-            storePhase2: {
-                every: {
-                    status: { notIn: [1, 2] },
+                {
+                    storePhase2: {
+                        every: {
+                            status: { notIn: [1, 2] },
+                        },
+                    },
                 },
-            },
+                rawSearch
+                    ? {
+                        OR: [
+                            {
+                                storeName: {
+                                    contains: rawSearch,
+                                    mode: 'insensitive',
+                                },
+                            },
+                            {
+                                storeNumber: {
+                                    in: await prisma.store
+                                        .findMany({ select: { storeNumber: true } })
+                                        .then((stores) =>
+                                            stores
+                                                .map((s) => s.storeNumber)
+                                                .filter((num) =>
+                                                    num.toString().includes(rawSearch)
+                                                )
+                                        ),
+                                },
+                            },
+                        ],
+                    }
+                    : {},
+            ],
         };
 
         const [allUpCommingStores, total] = await Promise.all([
@@ -250,8 +345,6 @@ exports.getAllUpCommingStores = async (req, res) => {
         res.status(500).json({ error: 'Erro ao buscar lojas futuras' });
     }
 };
-
-
 
 exports.getStoreById = async (req, res) => {
     try {
@@ -348,7 +441,6 @@ exports.updateStore = async (req, res) => {
         res.status(500).json({ error: 'Algo correu mal' });
     }
 };
-
 
 exports.deleteStore = async (req, res) => {
     try {

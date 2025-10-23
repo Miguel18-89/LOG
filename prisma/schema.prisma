@@ -32,6 +32,7 @@ model User {
   updatedPhase1           Phase1[]       @relation("UpdatedByUser")
   updatedPhase2           Phase2[]       @relation("UpdatedByUser")
   updatedComments         Comments[]     @relation("CreatedByUser")
+  updatedDocuments        Documents[]     @relation("uploadedByUser")
 }
 
 model Store {
@@ -53,6 +54,7 @@ model Store {
   storePhase1             Phase1[]       @relation("Phase1FromStore")
   storePhase2             Phase2[]       @relation("Phase2FromStore")
   comments                Comments[]     @relation("CommentsFromStore") 
+  documents               Documents[]     @relation("DocumentsFromStore") 
 }
 
 model Survey {
@@ -141,4 +143,15 @@ model Comments {
   created_at              DateTime? @default(now())
   updated                 Boolean? @default(false)
   message                 String
+}
+
+model Documents {
+  id                      String   @id @default(uuid())
+  filename                String
+  path                    String
+  uploadedAt              DateTime @default(now())
+  uploadedBy              User     @relation("uploadedByUser", fields: [uploaded_by], references: [id])
+  uploaded_by             String
+  store_id                String
+  storeId                 Store  @relation("DocumentsFromStore", fields: [store_id], references: [id],onDelete: Cascade)
 }

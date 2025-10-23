@@ -2,15 +2,23 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+const { commentsSchema } = require('../schemas/commentsSchema.js');
+
 
 exports.createStoreComment = async (req, res) => {
     try {
-        const {
-            message,
-            status,
-            storeId,
-            userId,
-        } = req.body;
+
+        const parseResult = commentsSchema.safeParse(req.body);
+
+        if (!parseResult.success) {
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
+
+        const { storeId, userId, message } = parseResult.data;
+
 
         if (!storeId || !userId) {
             return res.status(400).json('Store Id and User Id required');
@@ -27,7 +35,6 @@ exports.createStoreComment = async (req, res) => {
         const newComment = await prisma.comments.create({
             data: {
                 message,
-                status,
                 createdBy: {
                     connect: { id: userId },
                 },
@@ -40,21 +47,9 @@ exports.createStoreComment = async (req, res) => {
         res.status(201).json({ message: 'Comment created successfully', comment: newComment });
     } catch (e) {
         console.error('Erro ao criar comentário:', e);
-        res.status(500).json('Something went wrong');
-    }
-};
-
-/*
-exports.getAllComments = async (req, res) => {
-    try {
-        const allComments = await prisma.comments.findMany();
-        res.status(200).json({ allComments });
-    } catch (e) {
-        console.error(e);
         res.status(500).json({ error: 'Something went wrong' });
     }
-}
-*/
+};
 
 exports.getCommentById = async (req, res) => {
     try {
@@ -90,13 +85,13 @@ exports.getCommentByStoreId = async (req, res) => {
                 },
             },
 
-      include: {
+            include: {
                 createdBy: {
-                    select: { name: true }, // opcional: inclui nome do autor
+                    select: { name: true },
                 },
             },
             orderBy: {
-                created_at: 'asc', // opcional: ordena por data
+                created_at: 'asc',
             },
         });
 
@@ -107,19 +102,40 @@ exports.getCommentByStoreId = async (req, res) => {
     }
 };
 
-
 exports.updateComment = async (req, res) => {
     try {
+
+        const parseResult = commentsSchema.safeParse(req.body);
+
+        if (!parseResult.success) {
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
+
+
         const { id } = req.params;
+
         const {
             message,
-            updated,
-        } = req.body;
+            updated, userId
+        } = parseResult.data;
 
         const updatedData = {
             message,
             updated: true,
         };
+
+        const comment = await prisma.comments.findUnique({
+            where: {
+                id: id,
+            },
+        });
+
+        if (comment.created_by !== userId) {
+            return res.status(403).json({ error: "Only the creater of comment can edit" })
+        }
 
         const updatedComment = await prisma.comments.update({
             where: { id },
@@ -128,12 +144,10 @@ exports.updateComment = async (req, res) => {
 
         res.status(200).json({ message: 'Comentário actualizado com sucesso', updatedComment });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Algo correu mal' });
+        console.error("Erro ao editar o comentário", e);
+        res.status(500).json({ error: 'Something went wrong' });
     }
 };
-
-
 
 exports.deleteComment = async (req, res) => {
     try {

@@ -75,22 +75,22 @@ Discutir com o Nuno:
 
 13 - como proteger a alteração do role e aprovação do user pelo admin ?? - não verificar por middlewhare, colocar dentro do endpoint a validação se é admin.
 
+14 - Devo criar validações para os comentários e users - sim
+
 
 ///////Duvidas/////
 
-14 - Devo criar validações para os comentários e users??
 
-/////outras////
 
-adicionar documentos
+/////outras////                                             
 
-pesquisa nos separadores de lojas completas, em curso e proximas
 
 email com html bem formatado
 
-paginação e pesquisa nos utilizadores
+toogle visibility na password
 
-Ajustar a FHD
+adicionar documentos
+
 
 
 

@@ -4,9 +4,20 @@ const { sendEmail } = require("../modules/email")
 
 const prisma = new PrismaClient();
 
+const { createUserSchema } = require('../schemas/userSchema');
+
 exports.createUser = async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+
+        const parseResult = createUserSchema.safeParse(req.body);
+
+        if (!parseResult.success) {
+            return res.status(400).json({
+                error: 'Dados inválidos',
+                details: parseResult.error.format(),
+            });
+        }
+        const { name, email, password } = parseResult.data;
 
         if (!name || !email || !password) {
             return res.status(400).json('Name, email and password are required');
@@ -67,17 +78,51 @@ exports.createUser = async (req, res) => {
         return res.status(201).json({ message: 'Utilizador criado ou reativado com sucesso. Emails enviados.' });
     } catch (e) {
         console.error(e);
-        res.status(500).json('Something went wrong');
+        res.status(500).json({ error: 'Something went wrong' });
     }
 };
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const allUsersRaw = await prisma.user.findMany({
-            where: {
-                is_active: true,
-            },
-        });
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 10;
+        const rawSearch = req.query.search?.trim() || '';
+
+        const whereAllUsers = {
+            AND: [
+                {
+                    is_active: true,
+                },
+                rawSearch
+                    ? {
+                        OR: [
+                            {
+                                name: {
+                                    contains: rawSearch,
+                                    mode: 'insensitive',
+                                },
+                            },
+                            {
+                                email: {
+                                    contains: rawSearch,
+                                    mode: 'insensitive',
+                                },
+                            },
+                        ].filter(Boolean),
+                    }
+                    : {},
+            ],
+        };
+
+        const [allUsersRaw, total] = await Promise.all([
+        prisma.user.findMany({
+            where: whereAllUsers,
+            skip: (page - 1) * pageSize,
+                take: pageSize,
+                orderBy: { role: 'desc' },
+        }),
+        prisma.user.count({ where: whereAllUsers }),
+        ])
 
         const allUsers = allUsersRaw.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
         res.status(200).json({ allUsers });
@@ -156,7 +201,6 @@ exports.updateUser = async (req, res) => {
 
         const updatedData = {};
         if (name) updatedData.name = name;
-        if (email) updatedData.email = email;
         if (role !== undefined) updatedData.role = role;
         if (approved !== undefined) updatedData.approved = approved;
         if (password) {
