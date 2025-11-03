@@ -4,6 +4,8 @@ const prisma = new PrismaClient();
 
 const { createPhase1Schema } = require('../schemas/phase1Schema.js');
 
+const { sendStorePhase1UpdateEmail } = require("../modules/email")
+
 
 
 exports.createStorePhase1 = async (req, res) => {
@@ -119,6 +121,8 @@ exports.updatePhase1 = async (req, res) => {
   try {
     const parseResult = createPhase1Schema.safeParse(req.body);
 
+    const {id} = req.params;
+
     if (!parseResult.success) {
       return res.status(400).json({
         error: 'Dados inválidos',
@@ -181,6 +185,30 @@ exports.updatePhase1 = async (req, res) => {
         updatedBy: { select: { name: true } },
       },
     });
+
+     const updatedPhase1 = await prisma.phase1.findUnique({
+                where: { id },
+                include: {
+                    updatedBy: { select: { name: true } },
+                    storeId: { select: { storeName: true, storeNumber: true } },
+                },
+            });
+    
+    
+            const allUsers = await prisma.user.findMany({
+                where: {
+                    is_active: true,
+                    approved: true,
+                    role: { in: [0, 1] },
+                },
+                select: { email: true },
+            });
+    
+            await Promise.all(
+                allUsers.map(user =>
+                    sendStorePhase1UpdateEmail(user.email, 'Actualização de loja', updatedPhase1)
+                )
+            );
 
     res.status(200).json({
       ...phase1,

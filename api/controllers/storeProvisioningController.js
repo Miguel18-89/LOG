@@ -4,6 +4,8 @@ const prisma = new PrismaClient();
 
 const { createProvisioningSchema } = require('../schemas/provisioningSchema.js');
 
+const { sendStoreProvisioningUpdateEmail } = require("../modules/email")
+
 exports.createStoreProvisioning = async (req, res) => {
     try {
         const parseResult = createProvisioningSchema.safeParse(req.body);
@@ -103,6 +105,7 @@ exports.getProvisioningByStoreId = async (req, res) => {
 exports.updateProvisioning = async (req, res) => {
     try {
         const parseResult = createProvisioningSchema.safeParse(req.body);
+        const { id } = req.params;
 
         if (!parseResult.success) {
             return res.status(400).json({
@@ -113,7 +116,7 @@ exports.updateProvisioning = async (req, res) => {
 
         const {
             storeId,
-            userId,
+            updated_by,
             ordered,
             trackingNumber,
             received,
@@ -129,7 +132,9 @@ exports.updateProvisioning = async (req, res) => {
                 received,
                 validated,
                 status,
-                updatedBy: userId,
+                updatedBy: {
+                    connect: { id: updated_by },
+                },
             },
             create: {
                 ordered,
@@ -138,16 +143,40 @@ exports.updateProvisioning = async (req, res) => {
                 validated,
                 status,
                 storeId: {
-                        connect: { id: storeId },
-                    },
-
-        updatedBy: userId,
+                    connect: { id: storeId },
+                },
+                updatedBy: {
+                    connect: { id: updated_by },
+                },
             },
             include: {
                 updatedBy: { select: { id: true, name: true } },
                 storeId: { select: { id: true } },
             },
         });
+
+         const updatedProvisioning = await prisma.provisioning.findUnique({
+            where: { id },
+            include: {
+                updatedBy: { select: { name: true } },
+                storeId: { select: { storeName: true, storeNumber: true } },
+            },
+        });
+
+        const allUsers = await prisma.user.findMany({
+                    where: {
+                        is_active: true,
+                        approved: true,
+                        role: { in: [0, 1] },
+                    },
+                    select: { email: true },
+                });
+        
+                await Promise.all(
+                    allUsers.map(user =>
+                        sendStoreProvisioningUpdateEmail(user.email, 'Actualização de loja', updatedProvisioning)
+                    )
+                );
 
         res.status(200).json(provisioning);
     } catch (error) {

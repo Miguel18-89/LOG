@@ -4,6 +4,9 @@ const prisma = new PrismaClient();
 
 const { commentsSchema } = require('../schemas/commentsSchema.js');
 
+const { sendStoreCommentCreateEmail } = require("../modules/email")
+
+const { sendStoreCommentUpdateEmail } = require("../modules/email")
 
 exports.createStoreComment = async (req, res) => {
     try {
@@ -43,6 +46,31 @@ exports.createStoreComment = async (req, res) => {
                 },
             },
         });
+
+        const store = await prisma.store.findUnique({
+            where: { id: storeId },
+            select: { storeName: true, storeNumber: true }
+        });
+
+        const userThatCreate = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true }
+        });
+
+        const allUsers = await prisma.user.findMany({
+            where: {
+                is_active: true,
+                approved: true,
+                role: { in: [0, 1] },
+            },
+            select: { email: true },
+        });
+
+        await Promise.all(
+            allUsers.map(user =>
+                sendStoreCommentCreateEmail(user.email, 'Actualização de loja', message, store, userThatCreate)
+            )
+        );
 
         res.status(201).json({ message: 'Comment created successfully', comment: newComment });
     } catch (e) {
@@ -131,16 +159,38 @@ exports.updateComment = async (req, res) => {
             where: {
                 id: id,
             },
+            include: {
+                createdBy: { select: { name: true } },
+                storeId: { select: { storeName: true, storeNumber: true } },
+            },
         });
-
-        if (comment.created_by !== userId) {
-            return res.status(403).json({ error: "Only the creater of comment can edit" })
-        }
 
         const updatedComment = await prisma.comments.update({
             where: { id },
             data: updatedData,
         });
+
+
+        const allUsers = await prisma.user.findMany({
+            where: {
+                is_active: true,
+                approved: true,
+                role: { in: [0, 1] },
+            },
+            select: { email: true },
+        });
+
+        await Promise.all(
+            allUsers.map(user =>
+                sendStoreCommentUpdateEmail(user.email, 'Actualização de loja', comment, updatedComment)
+            )
+        );
+
+        if (comment.created_by !== userId) {
+            return res.status(403).json({ error: "Only the creater of comment can edit" })
+        }
+
+
 
         res.status(200).json({ message: 'Comentário actualizado com sucesso', updatedComment });
     } catch (e) {

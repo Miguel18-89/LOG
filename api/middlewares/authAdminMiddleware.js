@@ -8,33 +8,45 @@ exports.requireAuthorization = async (req, res, next) => {
     try {
         let tokenParts = req.headers.authorization?.split(" ") ?? [];
 
-        if (tokenParts.length !== 2 || tokenParts[0] != "Bearer") {
+        if (tokenParts.length !== 2 || tokenParts[0] !== "Bearer") {
             return res.status(401).json({ error: "unauthorized1" });
         }
 
         const token = tokenParts[1];
-
         const payload = jwt.verify(token, process.env.JWT_SECRET);
-
 
         const user = await prisma.user.findUnique({
             where: { id: payload.id },
         });
+
         if (!user) {
-            return res.status(401).json({ error: "unauthorized2" })
+            return res.status(401).json({ error: "unauthorized" });
         }
 
-        if (user.passwordChangedAt && payload.iat * 1000 < user.passwordChangedAt.getTime()) {
-            return res.status(498).json({ error: "Token expirado após alteração de senha" });
+        if (
+            user.passwordChangedAt &&
+            payload.iat * 1000 < user.passwordChangedAt.getTime()
+        ) {
+            return res
+                .status(498)
+                .json({ error: "Token expirado após alteração de senha" });
         }
+
         req.user = user;
         next();
+    } catch (error) {
+        if (error.name === "TokenExpiredError") {
+            return res.status(401).json({ error: "Token expirado" });
+        }
+        if (error.name === "JsonWebTokenError") {
+            return res.status(401).json({ error: "Token inválido" });
+        }
+        console.error(error);
+        return res.status(500).json({ error: "Internal server error" });
     }
-    catch (error) {
-        console.log(error)
-        return res.status(500).json({ error: "Internal server error" })
-    }
-}
+};
+
+
 
 
 exports.isAdmin = async (req, res, next) => {

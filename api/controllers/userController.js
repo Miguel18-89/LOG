@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
-const { sendEmail } = require("../modules/email")
+const { sendEmail, sendNewUserEmail } = require("../modules/email")
 
 const prisma = new PrismaClient();
 
@@ -71,7 +71,7 @@ exports.createUser = async (req, res) => {
 
         await Promise.all(
             admins.map(admin =>
-                sendEmail(admin.email, 'Novo utilizador registado', `Novo utilizador registado:\n\nNome: ${name}\nEmail: ${email}\n\nEstado: Pendente de aprovação.`)
+                sendNewUserEmail(admin.email, 'Novo utilizador registado', name, email)
             )
         );
 

@@ -1,14 +1,13 @@
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs/promises');
 const prisma = require('../../prisma/client');
 const { documentMetadataSchema } = require('../schemas/documentsMetadataSchema');
 
 exports.saveDocumentMetadata = async (req, res) => {
     try {
-        console.log('req.body:', req.body); // debug
-        console.log('req.file:', req.file); // debug
 
         const result = documentMetadataSchema.safeParse(req.body);
+
         if (!result.success) {
             return res.status(400).json({
                 error: 'Dados inválidos',
@@ -17,15 +16,21 @@ exports.saveDocumentMetadata = async (req, res) => {
         }
 
         if (!req.file) {
-            return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+            return res.status(400).json({ error: 'Nenhum ficheiro foi enviado' });
         }
 
         const { uploaded_by, store_id } = result.data;
+
+        const fixEncoding = (str) => Buffer.from(str, 'latin1').toString('utf8');
+        const originalName = fixEncoding(req.file.originalname);
+        console.log(originalName)
+
 
         const document = await prisma.documents.create({
             data: {
                 filename: '',
                 path: '',
+                originalName: originalName,
                 uploadedBy: {
                     connect: { id: uploaded_by },
                 },
@@ -43,9 +48,9 @@ exports.saveDocumentMetadata = async (req, res) => {
 
         try {
             await fsPromises.rename(oldPath, newPath);
-            console.log('Arquivo renomeado com sucesso:', newPath);
+            console.log('Ficheiro renomeado com sucesso:', newPath);
         } catch (err) {
-            console.error('Erro ao renomear arquivo:', err);
+            console.error('Erro ao renomear o ficheiro:', err);
         }
 
         const updatedDocument = await prisma.documents.update({
@@ -68,34 +73,65 @@ exports.saveDocumentMetadata = async (req, res) => {
     }
 };
 
+
 exports.getDocumentsByStore = async (req, res) => {
+    try {
+        const { storeId } = req.params;
+        const documents = await prisma.documents.findMany({
+            where: { store_id: storeId },
+            select: { id: true, filename: true, uploadedAt: true, originalName: true }
+        });
+
+        res.json(documents);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao procurar documentos' });
+    }
+};
 
 
-    const { storeId } = req.query;
+exports.getDocumentsById = async (req, res) => {
+    try {
+        const doc = await prisma.documents.findUnique({
+            where: { id: req.params.id }
+        });
 
-    if (!storeId) {
-        return res.status(400).json({ error: 'storeId é obrigatório' });
+        if (!doc) return res.status(404).json({ error: 'Documento não encontrado' });
+        res.type('application/pdf');
+        res.sendFile(path.resolve(doc.path)); // devolve o PDF
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao enviar documento' });
+    }
+};
+
+exports.deleteDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(id)
+
+    const document = await prisma.documents.findUnique({
+      where: { id },
+    });
+
+    if (!document) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
     }
 
     try {
-        const documents = await prisma.documents.findMany({
-            where: {
-                store_id: storeId, // ← campo escalar, não relacional
-            },
-            select: {
-                id: true,
-                filename: true,
-                path: true,
-                uploadedAt: true, // ✅ este é o campo de data que provavelmente queres
-            }
-            ,
-        });
-
-
-
-        res.status(200).json(documents);
-    } catch (error) {
-        console.error('Erro ao buscar documentos da loja:', error);
-        res.status(500).json({ error: 'Erro interno ao buscar documentos' });
+      await fs.unlink(document.path);
+      console.log('Ficheiro apagado:', document.path);
+    } catch (err) {
+      console.warn('Aviso: não foi possível apagar o ficheiro físico', err.message);
     }
+
+    await prisma.documents.delete({
+      where: { id },
+    });
+
+    res.status(200).json({ message: 'Documento apagado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao apagar documento:', error);
+    res.status(500).json({ error: 'Erro interno ao apagar documento' });
+  }
 };

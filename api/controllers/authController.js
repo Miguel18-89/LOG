@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { sendEmail } = require("../modules/email")
+const { sendEmail, sendResetPasswordEmail } = require("../modules/email")
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -74,8 +74,7 @@ exports.forgotPassword = async (req, res) => {
         resetTokenExp: new Date(Date.now() + 15 * 60 * 1000),
       },
     });
-    const resetURL = `${req.protocol}://localhost:5173/reset-password/${resetToken}`;
-    await sendEmail(user.email, "password Reset", `click here to reset your password: ${resetURL}`);
+    await sendResetPasswordEmail(user.email, "Password Reset", resetToken, user.name);
     return res.status(200).json({ message: 'Password reset email sent' });
   } catch (err) {
     console.error(err);

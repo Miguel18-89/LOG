@@ -148,6 +148,7 @@ model Comments {
 model Documents {
   id                      String   @id @default(uuid())
   filename                String
+  originalName            String
   path                    String
   uploadedAt              DateTime @default(now())
   uploadedBy              User     @relation("uploadedByUser", fields: [uploaded_by], references: [id])

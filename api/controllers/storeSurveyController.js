@@ -6,6 +6,8 @@ const { createSurveySchema } = require('../schemas/surveySchema.js');
 
 const { updateSurveySchema } = require('../schemas/surveySchema.js');
 
+const { sendStoreSurveyUpdateEmail } = require("../modules/email")
+
 exports.createStoreSurvey = async (req, res) => {
     try {
         const parseResult = createSurveySchema.safeParse(req.body);
@@ -194,6 +196,30 @@ exports.updateSurvey = async (req, res) => {
                 updated_by: userId,
             },
         });
+
+        const updatedSurvey = await prisma.survey.findUnique({
+            where: { id },
+            include: {
+                updatedBy: { select: { name: true } },
+                storeId: { select: { storeName: true, storeNumber: true } },
+            },
+        });
+
+
+        const allUsers = await prisma.user.findMany({
+            where: {
+                is_active: true,
+                approved: true,
+                role: { in: [0, 1] },
+            },
+            select: { email: true },
+        });
+
+        await Promise.all(
+            allUsers.map(user =>
+                sendStoreSurveyUpdateEmail(user.email, 'Actualização de loja', updatedSurvey)
+            )
+        );
 
         res.status(200).json(result);
     } catch (error) {

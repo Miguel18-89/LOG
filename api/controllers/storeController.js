@@ -4,6 +4,9 @@ const prisma = new PrismaClient();
 
 const { createStoreSchema } = require('../schemas/storeSchema.js');
 const { updateStoreSchema } = require('../schemas/storeSchema.js');
+const { sendStoreDetailsUpdateEmail } = require("../modules/email")
+
+
 
 
 
@@ -64,7 +67,6 @@ exports.createStore = async (req, res) => {
         res.status(500).json({ error: 'Something went wrong' });
     }
 };
-
 
 exports.getAllStores = async (req, res) => {
     try {
@@ -275,6 +277,16 @@ exports.getAllUpCommingStores = async (req, res) => {
         const pageSize = parseInt(req.query.pageSize) || 10;
         const rawSearch = req.query.search?.trim() || '';
 
+        const storeNumberMatches = rawSearch
+            ? await prisma.store
+                .findMany({ select: { storeNumber: true } })
+                .then((stores) =>
+                    stores
+                        .map((s) => s.storeNumber)
+                        .filter((num) => num.toString().includes(rawSearch))
+                )
+            : [];
+
         const whereUpCommingStores = {
             AND: [
                 {
@@ -302,15 +314,7 @@ exports.getAllUpCommingStores = async (req, res) => {
                             },
                             {
                                 storeNumber: {
-                                    in: await prisma.store
-                                        .findMany({ select: { storeNumber: true } })
-                                        .then((stores) =>
-                                            stores
-                                                .map((s) => s.storeNumber)
-                                                .filter((num) =>
-                                                    num.toString().includes(rawSearch)
-                                                )
-                                        ),
+                                    in: storeNumberMatches,
                                 },
                             },
                         ],
@@ -319,27 +323,36 @@ exports.getAllUpCommingStores = async (req, res) => {
             ],
         };
 
-        const [allUpCommingStores, total] = await Promise.all([
-            prisma.store.findMany({
-                where: whereUpCommingStores,
-                skip: (page - 1) * pageSize,
-                take: pageSize,
-                include: {
-                    storeSurveys: {
-                        select: {
-                            status: true,
-                            surveyOpeningDate: true,
-                        },
+        const allStoresRaw = await prisma.store.findMany({
+            where: whereUpCommingStores,
+            include: {
+                storeSurveys: {
+                    select: {
+                        status: true,
+                        surveyOpeningDate: true,
                     },
-                    storeProvisioning: { select: { status: true } },
-                    storePhase1: { select: { status: true } },
-                    storePhase2: { select: { status: true } },
                 },
-            }),
-            prisma.store.count({ where: whereUpCommingStores }),
-        ]);
+                storeProvisioning: { select: { status: true } },
+                storePhase1: { select: { status: true } },
+                storePhase2: { select: { status: true } },
+            },
+        });
 
-        res.status(200).json({ allUpCommingStores, total });
+        const sortedStores = allStoresRaw.sort((a, b) => {
+            const aDate = a.storeSurveys[0]?.surveyOpeningDate ?? new Date(0);
+            const bDate = b.storeSurveys[0]?.surveyOpeningDate ?? new Date(0);
+            return aDate - bDate;
+        });
+
+        const paginatedStores = sortedStores.slice(
+            (page - 1) * pageSize,
+            page * pageSize
+        );
+
+        res.status(200).json({
+            allUpCommingStores: paginatedStores,
+            total: sortedStores.length,
+        });
     } catch (error) {
         console.error('Erro ao buscar lojas futuras:', error);
         res.status(500).json({ error: 'Erro ao buscar lojas futuras' });
@@ -376,12 +389,13 @@ exports.getStoreById = async (req, res) => {
     }
 };
 
-
 exports.updateStore = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const parseResult = updateStoreSchema.safeParse(req.body);
+        const parseResult = updateStoreSchema.safeParse(req.body.formData);
+        const { userId } = req.body;
+
         if (!parseResult.success) {
             return res.status(400).json({
                 error: 'Dados inválidos',
@@ -397,30 +411,36 @@ exports.updateStore = async (req, res) => {
             storeArea,
             storeInspectorName,
             storeInspectorContact,
-            userId,
         } = parseResult.data;
 
         const storeExist = await prisma.store.findUnique({ where: { id } });
+        console.log("Store existente:", storeExist);
         if (!storeExist) {
             return res.status(404).json({ error: 'Loja não encontrada' });
         }
 
         const updatedData = {};
-        if (storeName) updatedData.storeName = storeName;
-        if (storeNumber) updatedData.storeNumber = storeNumber;
-        if (storeAddress) updatedData.storeAddress = storeAddress;
-        if (storeRegion) updatedData.storeRegion = storeRegion;
-        if (storeArea) updatedData.storeArea = storeArea;
-        if (storeInspectorName) updatedData.storeInspectorName = storeInspectorName;
-        if (storeInspectorContact) updatedData.storeInspectorContact = storeInspectorContact;
-        if (userId) updatedData.updatedBy = { connect: { id: userId } };
+        if (storeName !== undefined) updatedData.storeName = storeName;
+        if (storeNumber !== undefined) updatedData.storeNumber = storeNumber;
+        if (storeAddress !== undefined) updatedData.storeAddress = storeAddress;
+        if (storeRegion !== undefined) updatedData.storeRegion = storeRegion;
+        if (storeArea !== undefined) updatedData.storeArea = storeArea;
+        if (storeInspectorName !== undefined) updatedData.storeInspectorName = storeInspectorName;
+        if (storeInspectorContact !== undefined) updatedData.storeInspectorContact = storeInspectorContact;
+
+        if (userId) {
+            updatedData.updatedBy = { connect: { id: userId } };
+        }
+
+        console.log("Dados a atualizar:", updatedData);
+
 
         await prisma.store.update({
             where: { id },
             data: updatedData,
         });
 
-        const updatedStoreDetails = await prisma.store.findFirst({
+        const updatedStoreDetails = await prisma.store.findUnique({
             where: { id },
             include: {
                 storeSurveys: true,
@@ -432,9 +452,24 @@ exports.updateStore = async (req, res) => {
             },
         });
 
+        const allUsers = await prisma.user.findMany({
+            where: {
+                is_active: true,
+                approved: true,
+                role: { in: [0, 1] },
+            },
+            select: { email: true },
+        });
+
+        await Promise.all(
+            allUsers.map(user =>
+                sendStoreDetailsUpdateEmail(user.email, 'Actualização de loja', updatedStoreDetails)
+            )
+        );
+
         res.status(200).json({
             ...updatedStoreDetails,
-            updatedByName: updatedStoreDetails?.updatedBy?.name ?? 'Desconhecido',
+            updatedByName: updatedStoreDetails?.updatedBy?.name || 'Desconhecido',
         });
     } catch (e) {
         console.error('Erro ao atualizar loja:', e);

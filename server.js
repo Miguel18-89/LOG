@@ -11,6 +11,9 @@ app.use(cors({
 
 
 
+
+
+
 const userRouter = require('./api/routes/userRoutes');
 const storeRouter = require('./api/routes/storeRoutes');
 const storeSurveyRouter = require('./api/routes/storeSurveyRoutes');
@@ -36,7 +39,8 @@ app.use('/phase1', storePhase1Router);
 app.use('/phase2', storePhase2Router);
 app.use('/comments', storeCommentsRouter);
 app.use('/documents', storeDocumentsRouter );
-app.use('/uploads/pdfs', express.static(path.join(__dirname, 'api', 'uploads', 'pdfs')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 
 
