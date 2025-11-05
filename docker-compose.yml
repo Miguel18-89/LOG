@@ -2,7 +2,7 @@ version: "3.9"
 services:
   api:
     build: .
-    container_name: my-api
+    container_name: log-api
     ports:
       - "3000:3000"
     env_file: .env
