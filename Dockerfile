@@ -4,25 +4,20 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package files first (for better caching)
+# Copy package files first (for caching)
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy Prisma schema and source code
-COPY prisma ./prisma
-COPY src ./src
-COPY tsconfig.json ./
+# Copy all source files
+COPY . .
 
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build (if using TypeScript)
-RUN npm run build
-
 # Expose port
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"]
+# Run migrations (optional for production)
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
