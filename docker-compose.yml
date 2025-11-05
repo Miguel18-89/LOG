@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    container_name: my-api
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      - db
+    command: sh -c "npx prisma migrate deploy && npm start"
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+volumes:
+  postgres-data:
