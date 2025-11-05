@@ -198,12 +198,13 @@ exports.updateSurvey = async (req, res) => {
         });
 
         const updatedSurvey = await prisma.survey.findUnique({
-            where: { id },
+            where: { id: result.id },
             include: {
                 updatedBy: { select: { name: true } },
                 storeId: { select: { storeName: true, storeNumber: true } },
             },
         });
+
 
 
         const allUsers = await prisma.user.findMany({

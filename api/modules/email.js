@@ -24,6 +24,7 @@ exports.sendEmail = async (to, subject, message) => {
     await transporter.sendMail(mailOptions);
 
 }
+
 exports.sendResetPasswordEmail = async (to, subject, resetToken, userName) => {
     const resetURL = `http://localhost:5173/reset-password/${resetToken}`;
     const source = fs.readFileSync(path.join(__dirname, 'ForgotPasswordEmail.html'), 'utf8');
@@ -58,8 +59,36 @@ exports.sendNewUserEmail = async (to, subject, name, email) => {
     const template = handlebars.compile(source);
     const htmlContent = template({
         newUserName: name,
-        newUserEmail: email
+        newUserEmail: email,
+        signInLink: "http://localhost:5173/",
 
+    });
+
+    let transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASSWORD
+        }
+    });
+
+    const mailOptions = {
+        from: "LOG",
+        to: to,
+        subject: subject,
+        html: htmlContent
+    }
+
+    await transporter.sendMail(mailOptions);
+
+}
+
+exports.sendNewRegisterEmail = async (to, subject, name) => {
+    const source = fs.readFileSync(path.join(__dirname, 'NewRegister.html'), 'utf8');
+    const template = handlebars.compile(source);
+    const htmlContent = template({
+        userName: name,
     });
 
     let transporter = nodemailer.createTransport({
@@ -115,8 +144,6 @@ exports.sendStoreDetailsUpdateEmail = async (to, subject, updatedStoreDetails) =
     await transporter.sendMail(mailOptions);
 
 }
-
-
 
 exports.sendStoreSurveyUpdateEmail = async (to, subject, updatedSurvey) => {
     const source = fs.readFileSync(path.join(__dirname, 'storeSurveyUpdate.html'), 'utf8');
@@ -338,7 +365,6 @@ exports.sendStoreCommentCreateEmail = async (to, subject, message, store, userTh
 
 }
 
-
 exports.sendStoreCommentUpdateEmail = async (to, subject, comment, updatedComment) => {
     const source = fs.readFileSync(path.join(__dirname, 'storeCommentUpdate.html'), 'utf8');
     const template = handlebars.compile(source);
@@ -347,6 +373,35 @@ exports.sendStoreCommentUpdateEmail = async (to, subject, comment, updatedCommen
         storeName: comment.storeId.storeName,
         storeNumber: comment.storeId.storeNumber,
         message: updatedComment.message
+    });
+
+    let transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASSWORD
+        }
+    });
+
+    const mailOptions = {
+        from: "LOG",
+        to: to,
+        subject: subject,
+        html: htmlContent
+    }
+
+    await transporter.sendMail(mailOptions);
+
+}
+
+exports.sendUserApprovedEmail = async (to, subject, userName) => {
+    const source = fs.readFileSync(path.join(__dirname, 'UserApproved.html'), 'utf8');
+    const template = handlebars.compile(source);
+    const htmlContent = template({
+        signInLink: "http://localhost:5173/",
+        userName: userName,
+        
     });
 
     let transporter = nodemailer.createTransport({

@@ -156,7 +156,7 @@ exports.updateProvisioning = async (req, res) => {
         });
 
          const updatedProvisioning = await prisma.provisioning.findUnique({
-            where: { id },
+            where: { id: provisioning.id },
             include: {
                 updatedBy: { select: { name: true } },
                 storeId: { select: { storeName: true, storeNumber: true } },

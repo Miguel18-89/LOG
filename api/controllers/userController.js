@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
-const { sendEmail, sendNewUserEmail } = require("../modules/email")
+const { sendEmail, sendNewUserEmail, sendNewRegisterEmail, sendUserApprovedEmail } = require("../modules/email") 
 
 const prisma = new PrismaClient();
 
@@ -58,11 +58,7 @@ exports.createUser = async (req, res) => {
             });
         }
 
-        await sendEmail(
-            email,
-            'Novo registo',
-            'Registo efetuado com sucesso. Aguarda aprovação pelo administrador. Será notificado quando aprovado.'
-        );
+        await sendNewRegisterEmail(email, 'Confirmação de Registo', name);
 
         const admins = await prisma.user.findMany({
             where: { role: 2 },
@@ -214,11 +210,7 @@ exports.updateUser = async (req, res) => {
         });
 
         if (approvedUser) {
-            await sendEmail(
-                updatedUser.email,
-                'Conta aprovada',
-                `Olá ${updatedUser.name},\n\nA sua conta foi aprovada pelo administrador e já pode aceder à plataforma LOG.\n\nCumprimentos,\nEquipa LOG`
-            );
+            await sendUserApprovedEmail(updatedUser.email, 'Registo aprovado', updatedUser.name);
         }
 
         const { password: _, ...userWithoutPassword } = updatedUser;

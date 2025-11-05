@@ -187,7 +187,7 @@ exports.updatePhase1 = async (req, res) => {
     });
 
      const updatedPhase1 = await prisma.phase1.findUnique({
-                where: { id },
+                where: { id: phase1.id },
                 include: {
                     updatedBy: { select: { name: true } },
                     storeId: { select: { storeName: true, storeNumber: true } },
