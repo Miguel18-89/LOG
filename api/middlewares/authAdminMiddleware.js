@@ -28,8 +28,13 @@ exports.requireAuthorization = async (req, res, next) => {
             payload.iat * 1000 < user.passwordChangedAt.getTime()
         ) {
             return res
-                .status(498)
-                .json({ error: "Token expirado após alteração de senha" });
+                .status(401)
+                .json({
+                    error: 'unauthenticated',
+                    reason: 'token_revoked_after_password_change',
+                    message: 'Sessão inválida. Por favor, faça login novamente.'
+                });
+            ;
         }
 
         req.user = user;

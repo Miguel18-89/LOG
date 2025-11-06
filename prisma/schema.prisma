@@ -25,6 +25,7 @@ model User {
   resetToken              String?
   resetTokenExp           DateTime?
   approved                Boolean        @default(false)
+  passwordChangedAt       DateTime?
   createdStores           Store[]        @relation("CreatedByUser")
   updatedStores           Store[]        @relation("UpdatedByUser")
   updatedSurveys          Survey[]       @relation("UpdatedByUser")

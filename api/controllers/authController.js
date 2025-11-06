@@ -5,9 +5,11 @@ const { sendEmail, sendResetPasswordEmail } = require("../modules/email")
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET;
+const SALT_ROUNDS = 10;
 
 
- exports.login = async (req, res) => {
+
+exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -86,36 +88,48 @@ exports.forgotPassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   const token = req.params.token;
   const { password } = req.body;
-  if (!token) {
-    return res.status(400).json({ error: 'Token is required' });
-  }
-  if (!password) {
-    return res.status(400).json({ error: 'New password is required' });
-  }
+
+  if (!token) return res.status(400).json({ error: 'Token is required' });
+  if (!password) return res.status(400).json({ error: 'New password is required' });
+
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    if (payload.exp < Date.now() / 1000) {
-      return res.status(400).json({ error: 'Token expired' });
+
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+
+    if (payload.purpose && payload.purpose !== 'password_reset') {
+      return res.status(400).json({ error: 'Invalid token purpose' });
     }
-    const user = await prisma.user.findUnique({
-      where: { id: payload.id },
-    });
+
+    const user = await prisma.user.findUnique({ where: { id: payload.id } });
     if (!user || !user.is_active) {
       return res.status(404).json({ error: 'User not found' });
     }
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        resetToken: null,
-        resetTokenExp: null,
-      },
-    });
-    res.status(200).json({ message: 'Password reset successful' });
+
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    const passwordChangedAt = new Date(Date.now() - 1000);
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          passwordChangedAt,
+          resetToken: null,
+          resetTokenExp: null,
+        },
+      }),
+    ]);
+
+    return res.status(200).json({ message: 'Password reset successful' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Invalid or expired token' });
+    if (err.name === 'TokenExpiredError') {
+      return res.status(400).json({ error: 'Token expired' });
+    }
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(400).json({ error: 'Invalid token' });
+    }
+    console.error('resetPassword error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
