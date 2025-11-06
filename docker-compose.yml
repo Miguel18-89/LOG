@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    container_name: log-api
+    ports:
+      - "3000:3000"
+    env_file: .env
+    command: sh -c "npx prisma migrate deploy && npm start"
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+networks:
+  default:
+    external: true
+    name: archival
