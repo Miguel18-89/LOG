@@ -139,7 +139,8 @@ exports.getUserById = async (req, res) => {
                 id: true,
                 name: true,
                 email: true,
-                approved: true
+                approved: true,
+                pin: true,
             },
         });
 
@@ -157,7 +158,7 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, email, password, role, approved } = req.body;
+        const { name, email, password, role, approved, pin } = req.body;
 
         const userExist = await prisma.user.findUnique({
             where: { id },
@@ -195,10 +196,21 @@ exports.updateUser = async (req, res) => {
 
         const approvedUser = approved === true && userExist.approved === false;
 
+        if (pin !== undefined) {
+            if (pin !== null && !/^\d{4,8}$/.test(String(pin))) {
+                return res.status(400).json({ error: 'O PIN deve ser numérico e ter entre 4 a 8 dígitos.' });
+            }
+            if (pin !== null) {
+                const pinConflict = await prisma.user.findFirst({ where: { pin: String(pin), id: { not: id } } });
+                if (pinConflict) return res.status(409).json({ error: 'Este PIN já está a ser utilizado por outro utilizador.' });
+            }
+        }
+
         const updatedData = {};
         if (name) updatedData.name = name;
         if (role !== undefined) updatedData.role = role;
         if (approved !== undefined) updatedData.approved = approved;
+        if (pin !== undefined) updatedData.pin = pin !== null ? String(pin) : null;
         if (password) {
             const saltRounds = 10;
             updatedData.password = await bcrypt.hash(password, saltRounds);

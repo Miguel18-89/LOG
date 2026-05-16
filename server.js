@@ -22,10 +22,11 @@ const storePhase1Router = require('./api/routes/storePhase1Routes');
 const storePhase2Router = require('./api/routes/storePhase2Routes');
 const storeCommentsRouter = require('./api/routes/storeCommentsRoutes');
 const storeDocumentsRouter = require('./api/routes/storeDocumentsRoutes');
+const overtimeRouter = require('./api/routes/overtimeRoutes');
 
 
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 
 
@@ -39,6 +40,7 @@ app.use('/phase1', storePhase1Router);
 app.use('/phase2', storePhase2Router);
 app.use('/comments', storeCommentsRouter);
 app.use('/documents', storeDocumentsRouter );
+app.use('/emg/horas-extra', overtimeRouter);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 

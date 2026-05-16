@@ -14,26 +14,28 @@ datasource db {
 }
 
 model User {
-  id                      String         @id @default(uuid())
+  id                      String           @id @default(uuid())
   name                    String
-  email                   String         @unique
+  email                   String           @unique
   password                String
-  role                    Int            @default(0) //0=user, 1=manager, 2=admin
-  is_active               Boolean        @default(true)
-  created_at              DateTime       @default(now())
-  updated_at              DateTime       @updatedAt
+  role                    Int              @default(0) //0=user, 1=manager, 2=admin
+  is_active               Boolean          @default(true)
+  created_at              DateTime         @default(now())
+  updated_at              DateTime         @updatedAt
+  pin                     String?          @unique
   resetToken              String?
   resetTokenExp           DateTime?
-  approved                Boolean        @default(false)
+  approved                Boolean          @default(false)
   passwordChangedAt       DateTime?
-  createdStores           Store[]        @relation("CreatedByUser")
-  updatedStores           Store[]        @relation("UpdatedByUser")
-  updatedSurveys          Survey[]       @relation("UpdatedByUser")
-  updatedProvisioning     Provisioning[] @relation("UpdatedByUser")
-  updatedPhase1           Phase1[]       @relation("UpdatedByUser")
-  updatedPhase2           Phase2[]       @relation("UpdatedByUser")
-  updatedComments         Comments[]     @relation("CreatedByUser")
-  updatedDocuments        Documents[]     @relation("uploadedByUser")
+  createdStores           Store[]          @relation("CreatedByUser")
+  updatedStores           Store[]          @relation("UpdatedByUser")
+  updatedSurveys          Survey[]         @relation("UpdatedByUser")
+  updatedProvisioning     Provisioning[]   @relation("UpdatedByUser")
+  updatedPhase1           Phase1[]         @relation("UpdatedByUser")
+  updatedPhase2           Phase2[]         @relation("UpdatedByUser")
+  updatedComments         Comments[]       @relation("CreatedByUser")
+  updatedDocuments        Documents[]      @relation("uploadedByUser")
+  overtimeRecords         OvertimeRecord[] @relation("OvertimeByUser")
 }
 
 model Store {
@@ -156,4 +158,21 @@ model Documents {
   uploaded_by             String
   store_id                String
   storeId                 Store  @relation("DocumentsFromStore", fields: [store_id], references: [id],onDelete: Cascade)
+}
+
+model OvertimeRecord {
+  id           String   @id @default(uuid())
+  date         DateTime
+  entryTime    String
+  exitTime     String
+  dinner       Boolean  @default(false)
+  weekendLunch Boolean  @default(false)
+  hours50      Float?
+  hours75      Float?
+  hours100     Float?
+  nightType    String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  user_id      String
+  createdBy    User     @relation("OvertimeByUser", fields: [user_id], references: [id])
 }
