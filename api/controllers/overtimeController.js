@@ -93,10 +93,9 @@ exports.createOvertime = async (req, res) => {
 
 exports.getAllOvertime = async (req, res) => {
     try {
-        const { userId, year, month } = req.query;
+        const { year, month } = req.query;
 
-        const where = {};
-        if (userId) where.user_id = userId;
+        const where = { user_id: req.user.id };
         if (year && month) {
             const y = parseInt(year);
             const m = parseInt(month);
