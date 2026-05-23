@@ -36,6 +36,16 @@ model User {
   updatedComments         Comments[]       @relation("CreatedByUser")
   updatedDocuments        Documents[]      @relation("uploadedByUser")
   overtimeRecords         OvertimeRecord[] @relation("OvertimeByUser")
+  rmaRecords              RMA[]            @relation("RMAByUser")
+  rmaUpdates              RMAUpdate[]      @relation("RMAUpdateByUser")
+  vehicles                Vehicle[]        @relation("VehicleByUser")
+  tireChanges             TireChange[]     @relation("TireChangeByUser")
+  oilChanges              OilChange[]      @relation("OilChangeByUser")
+  vehicleRepairs          VehicleRepair[]  @relation("VehicleRepairByUser")
+  employees               Employee[]       @relation("EmployeeByUser")
+  trainings               Training[]       @relation("TrainingByUser")
+  vacationRequests        VacationRequest[] @relation("VacationByUser")
+  vacationApprovals       VacationRequest[] @relation("VacationApprovedByUser")
 }
 
 model Store {
@@ -175,4 +185,157 @@ model OvertimeRecord {
   updated_at   DateTime @updatedAt
   user_id      String
   createdBy    User     @relation("OvertimeByUser", fields: [user_id], references: [id])
+}
+
+model RMA {
+  id             String      @id @default(uuid())
+  rmaNumber      Int         @unique @default(autoincrement())
+  openDate       DateTime    @default(now())
+  brand          String
+  model          String
+  serialNumber   String
+  fault          String
+  client         String
+  location       String
+  requestedBy    String
+  status         String      @default("no_cliente")
+  repairLocation String?
+  updates        RMAUpdate[]
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+  user_id        String
+  createdBy      User        @relation("RMAByUser", fields: [user_id], references: [id])
+}
+
+model RMAUpdate {
+  id         String   @id @default(uuid())
+  message    String
+  created_at DateTime @default(now())
+  rma_id     String
+  rma        RMA      @relation(fields: [rma_id], references: [id], onDelete: Cascade)
+  user_id    String
+  createdBy  User     @relation("RMAUpdateByUser", fields: [user_id], references: [id])
+}
+
+model Vehicle {
+  id                  String          @id @default(uuid())
+  brand               String
+  model               String
+  plate               String          @unique
+  registrationYear    Int
+  registrationMonth   Int
+  nextInspectionDate  DateTime?
+  insuranceExpiryDate DateTime?
+  tireSize            String?
+  tireChanges         TireChange[]
+  oilChanges          OilChange[]
+  repairs             VehicleRepair[]
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+  user_id             String
+  createdBy           User            @relation("VehicleByUser", fields: [user_id], references: [id])
+}
+
+model TireChange {
+  id         String   @id @default(uuid())
+  date       DateTime
+  location   String
+  km         Int
+  type       String
+  notes      String?
+  created_at DateTime @default(now())
+  vehicle_id String
+  vehicle    Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  user_id    String
+  createdBy  User     @relation("TireChangeByUser", fields: [user_id], references: [id])
+}
+
+model OilChange {
+  id         String   @id @default(uuid())
+  date       DateTime
+  location   String
+  km         Int
+  notes      String?
+  created_at DateTime @default(now())
+  vehicle_id String
+  vehicle    Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  user_id    String
+  createdBy  User     @relation("OilChangeByUser", fields: [user_id], references: [id])
+}
+
+model VehicleRepair {
+  id             String   @id @default(uuid())
+  date           DateTime
+  fault          String
+  repairLocation String
+  km             Int
+  notes          String?
+  created_at     DateTime @default(now())
+  vehicle_id     String
+  vehicle        Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  user_id        String
+  createdBy      User     @relation("VehicleRepairByUser", fields: [user_id], references: [id])
+}
+
+model Employee {
+  id                   String     @id @default(uuid())
+  fullName             String
+  nif                  String?    @unique
+  cc                   String?    @unique
+  niss                 String?    @unique
+  birthDate            DateTime?
+  address              String?
+  phone                String?
+  personalEmail        String?
+  workEmail            String?
+  emergencyContactName  String?
+  emergencyContactRel   String?
+  emergencyContactPhone String?
+  admissionDate         DateTime?
+  contractType          String?
+  jobCategory           String?
+  iban                  String?
+  insurancePolicy      String?
+  medicalFitnessDate         DateTime?
+  medicalFitnessFilename     String?
+  medicalFitnessOriginalName String?
+  medicalFitnessFilePath     String?
+  trainings                  Training[]
+  vacations                  VacationRequest[]
+  created_at                 DateTime   @default(now())
+  updated_at                 DateTime   @updatedAt
+  user_id                    String
+  createdBy                  User       @relation("EmployeeByUser", fields: [user_id], references: [id])
+}
+
+model Training {
+  id           String   @id @default(uuid())
+  name         String
+  date         DateTime
+  hours        Float
+  filename     String?
+  originalName String?
+  filePath     String?
+  employee_id  String
+  employee     Employee @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+  created_at   DateTime @default(now())
+  user_id      String
+  createdBy    User     @relation("TrainingByUser", fields: [user_id], references: [id])
+}
+
+model VacationRequest {
+  id          String    @id @default(uuid())
+  startDate   DateTime
+  endDate     DateTime
+  status      String    @default("pendente")
+  notes       String?
+  employee_id String
+  employee    Employee  @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+  approved_by String?
+  approvedAt  DateTime?
+  approvedBy  User?     @relation("VacationApprovedByUser", fields: [approved_by], references: [id])
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  created_by  String
+  createdBy   User      @relation("VacationByUser", fields: [created_by], references: [id])
 }

@@ -23,6 +23,10 @@ const storePhase2Router = require('./api/routes/storePhase2Routes');
 const storeCommentsRouter = require('./api/routes/storeCommentsRoutes');
 const storeDocumentsRouter = require('./api/routes/storeDocumentsRoutes');
 const overtimeRouter = require('./api/routes/overtimeRoutes');
+const rmaRouter = require('./api/routes/rmaRoutes');
+const frotaRouter = require('./api/routes/frotaRoutes');
+const pessoalRouter = require('./api/routes/pessoalRoutes');
+const feriasRouter  = require('./api/routes/feriasRoutes');
 
 
 
@@ -41,6 +45,10 @@ app.use('/phase2', storePhase2Router);
 app.use('/comments', storeCommentsRouter);
 app.use('/documents', storeDocumentsRouter );
 app.use('/emg/horas-extra', overtimeRouter);
+app.use('/emg/rma', rmaRouter);
+app.use('/emg/frota', frotaRouter);
+app.use('/emg/pessoal', pessoalRouter);
+app.use('/emg/ferias',  feriasRouter);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
