@@ -5,16 +5,23 @@ const STATUS_VALID = ['no_cliente', 'em_armazem', 'em_reparacao', 'reparado_arma
 
 exports.createRMA = async (req, res) => {
     try {
-        const { brand, model, serialNumber, fault, client, location, requestedBy, status, repairLocation, openDate } = req.body;
-        if (!brand || !model || !serialNumber || !fault || !client || !location || !requestedBy) {
+        const { brand, model, serialNumber, fault, client, location, requestedBy, status, repairLocation } = req.body;
+        const trim = s => (typeof s === 'string' ? s.trim() : s);
+        const b = trim(brand), m = trim(model), sn = trim(serialNumber), f = trim(fault),
+              c = trim(client), l = trim(location), rb = trim(requestedBy);
+        if (!b || !m || !sn || !f || !c || !l || !rb)
             return res.status(400).json({ error: 'Campos obrigatórios em falta.' });
-        }
+        if (b.length > 100 || m.length > 100 || sn.length > 100)
+            return res.status(400).json({ error: 'Campos excedem o tamanho máximo permitido.' });
+        const resolvedStatus = status || 'no_cliente';
+        if (!STATUS_VALID.includes(resolvedStatus))
+            return res.status(400).json({ error: 'Estado inválido.' });
         const rma = await prisma.rMA.create({
             data: {
-                brand, model, serialNumber, fault, client, location, requestedBy,
-                status: status || 'no_cliente',
-                repairLocation: repairLocation || null,
-                openDate: openDate ? new Date(openDate) : new Date(),
+                brand: b, model: m, serialNumber: sn, fault: f, client: c, location: l, requestedBy: rb,
+                status: resolvedStatus,
+                repairLocation: repairLocation?.trim() || null,
+                openDate: new Date(),
                 createdBy: { connect: { id: req.user.id } },
             },
             include: { createdBy: { select: { id: true, name: true } }, updates: { include: { createdBy: { select: { id: true, name: true } } } } },
@@ -38,7 +45,7 @@ exports.getAllRMAs = async (req, res) => {
                 where,
                 skip: (parseInt(page) - 1) * parseInt(pageSize),
                 take: parseInt(pageSize),
-                orderBy: { openDate: 'desc' },
+                orderBy: { rmaNumber: 'asc' },
                 include: { createdBy: { select: { id: true, name: true } } },
             }),
             prisma.rMA.count({ where }),
@@ -77,20 +84,22 @@ exports.updateRMA = async (req, res) => {
         const exists = await prisma.rMA.findUnique({ where: { id } });
         if (!exists) return res.status(404).json({ error: 'RMA não encontrado.' });
 
-        const { brand, model, serialNumber, fault, client, location, requestedBy, status, repairLocation, openDate } = req.body;
+        const { brand, model, serialNumber, fault, client, location, requestedBy, status, repairLocation } = req.body;
+        if (status && !STATUS_VALID.includes(status))
+            return res.status(400).json({ error: 'Estado inválido.' });
+        const trim = s => (typeof s === 'string' ? s.trim() : undefined);
         const rma = await prisma.rMA.update({
             where: { id },
             data: {
-                ...(brand && { brand }),
-                ...(model && { model }),
-                ...(serialNumber && { serialNumber }),
-                ...(fault && { fault }),
-                ...(client && { client }),
-                ...(location && { location }),
-                ...(requestedBy && { requestedBy }),
+                ...(brand && { brand: brand.trim() }),
+                ...(model && { model: model.trim() }),
+                ...(serialNumber && { serialNumber: serialNumber.trim() }),
+                ...(fault && { fault: fault.trim() }),
+                ...(client && { client: client.trim() }),
+                ...(location && { location: location.trim() }),
+                ...(requestedBy && { requestedBy: requestedBy.trim() }),
                 ...(status && { status }),
-                repairLocation: repairLocation ?? exists.repairLocation,
-                ...(openDate && { openDate: new Date(openDate) }),
+                repairLocation: repairLocation !== undefined ? (trim(repairLocation) || null) : exists.repairLocation,
             },
             include: {
                 createdBy: { select: { id: true, name: true } },

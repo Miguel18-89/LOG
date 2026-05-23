@@ -1,6 +1,15 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const PLATE_REGEX = /^[A-Z0-9]{2}-[A-Z0-9]{2}-[A-Z0-9]{2}$/;
+const CURRENT_YEAR = () => new Date().getFullYear();
+
+function validateDate(value) {
+    if (!value) return null;
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+}
+
 const vehicleInclude = {
     createdBy: { select: { id: true, name: true } },
     tireChanges: { orderBy: { date: 'desc' }, include: { createdBy: { select: { id: true, name: true } } } },
@@ -13,20 +22,30 @@ const vehicleInclude = {
 exports.createVehicle = async (req, res) => {
     try {
         const { brand, model, plate, registrationYear, registrationMonth, nextInspectionDate, insuranceExpiryDate, tireSize } = req.body;
-        if (!brand || !model || !plate || !registrationYear || !registrationMonth)
+        if (!brand?.trim() || !model?.trim() || !plate?.trim() || !registrationYear || !registrationMonth)
             return res.status(400).json({ error: 'Campos obrigatórios em falta.' });
 
-        const exists = await prisma.vehicle.findUnique({ where: { plate: plate.toUpperCase() } });
+        const plateFmt = plate.trim().toUpperCase();
+        if (!PLATE_REGEX.test(plateFmt))
+            return res.status(400).json({ error: 'Formato de matrícula inválido (ex: AB-12-CD).' });
+
+        const year = parseInt(registrationYear);
+        const month = parseInt(registrationMonth);
+        if (isNaN(year) || year < 1900 || year > CURRENT_YEAR() + 1)
+            return res.status(400).json({ error: 'Ano de matrícula inválido.' });
+        if (isNaN(month) || month < 1 || month > 12)
+            return res.status(400).json({ error: 'Mês de matrícula inválido.' });
+
+        const exists = await prisma.vehicle.findUnique({ where: { plate: plateFmt } });
         if (exists) return res.status(409).json({ error: 'Já existe uma viatura com esta matrícula.' });
 
         const vehicle = await prisma.vehicle.create({
             data: {
-                brand, model, plate: plate.toUpperCase(),
-                registrationYear: parseInt(registrationYear),
-                registrationMonth: parseInt(registrationMonth),
-                nextInspectionDate: nextInspectionDate ? new Date(nextInspectionDate) : null,
-                insuranceExpiryDate: insuranceExpiryDate ? new Date(insuranceExpiryDate) : null,
-                tireSize: tireSize || null,
+                brand: brand.trim(), model: model.trim(), plate: plateFmt,
+                registrationYear: year, registrationMonth: month,
+                nextInspectionDate: validateDate(nextInspectionDate),
+                insuranceExpiryDate: validateDate(insuranceExpiryDate),
+                tireSize: tireSize?.trim() || null,
                 createdBy: { connect: { id: req.user.id } },
             },
             include: vehicleInclude,
@@ -120,11 +139,16 @@ exports.addTireChange = async (req, res) => {
     try {
         const { id } = req.params;
         const { date, location, km, type, notes } = req.body;
-        if (!date || !location || !km || !type)
+        if (!date || !location?.trim() || !km || !type?.trim())
             return res.status(400).json({ error: 'Campos obrigatórios em falta.' });
+        const parsedKm = parseInt(km);
+        if (isNaN(parsedKm) || parsedKm < 0)
+            return res.status(400).json({ error: 'Quilometragem inválida.' });
+        const parsedDate = validateDate(date);
+        if (!parsedDate) return res.status(400).json({ error: 'Data inválida.' });
 
         const record = await prisma.tireChange.create({
-            data: { date: new Date(date), location, km: parseInt(km), type, notes: notes || null,
+            data: { date: parsedDate, location: location.trim(), km: parsedKm, type: type.trim(), notes: notes?.trim() || null,
                 vehicle: { connect: { id } }, createdBy: { connect: { id: req.user.id } } },
             include: { createdBy: { select: { id: true, name: true } } },
         });
@@ -148,11 +172,16 @@ exports.addOilChange = async (req, res) => {
     try {
         const { id } = req.params;
         const { date, location, km, notes } = req.body;
-        if (!date || !location || !km)
+        if (!date || !location?.trim() || !km)
             return res.status(400).json({ error: 'Campos obrigatórios em falta.' });
+        const parsedKm = parseInt(km);
+        if (isNaN(parsedKm) || parsedKm < 0)
+            return res.status(400).json({ error: 'Quilometragem inválida.' });
+        const parsedDate = validateDate(date);
+        if (!parsedDate) return res.status(400).json({ error: 'Data inválida.' });
 
         const record = await prisma.oilChange.create({
-            data: { date: new Date(date), location, km: parseInt(km), notes: notes || null,
+            data: { date: parsedDate, location: location.trim(), km: parsedKm, notes: notes?.trim() || null,
                 vehicle: { connect: { id } }, createdBy: { connect: { id: req.user.id } } },
             include: { createdBy: { select: { id: true, name: true } } },
         });
@@ -176,11 +205,16 @@ exports.addRepair = async (req, res) => {
     try {
         const { id } = req.params;
         const { date, fault, repairLocation, km, notes } = req.body;
-        if (!date || !fault || !repairLocation || !km)
+        if (!date || !fault?.trim() || !repairLocation?.trim() || !km)
             return res.status(400).json({ error: 'Campos obrigatórios em falta.' });
+        const parsedKm = parseInt(km);
+        if (isNaN(parsedKm) || parsedKm < 0)
+            return res.status(400).json({ error: 'Quilometragem inválida.' });
+        const parsedDate = validateDate(date);
+        if (!parsedDate) return res.status(400).json({ error: 'Data inválida.' });
 
         const record = await prisma.vehicleRepair.create({
-            data: { date: new Date(date), fault, repairLocation, km: parseInt(km), notes: notes || null,
+            data: { date: parsedDate, fault: fault.trim(), repairLocation: repairLocation.trim(), km: parsedKm, notes: notes?.trim() || null,
                 vehicle: { connect: { id } }, createdBy: { connect: { id: req.user.id } } },
             include: { createdBy: { select: { id: true, name: true } } },
         });

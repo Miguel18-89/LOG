@@ -67,7 +67,13 @@ exports.getAllEmployees = async (req, res) => {
     try {
         const { name } = req.query;
         const where = {};
-        if (name) where.fullName = { contains: name, mode: 'insensitive' };
+
+        if (req.user.role < 1) {
+            // Role 0 can only retrieve their own employee record
+            where.workEmail = req.user.email;
+        } else if (name) {
+            where.fullName = { contains: name, mode: 'insensitive' };
+        }
 
         const employees = await prisma.employee.findMany({
             where,
@@ -91,6 +97,11 @@ exports.getEmployeeById = async (req, res) => {
             include: employeeInclude,
         });
         if (!employee) return res.status(404).json({ error: 'Colaborador não encontrado.' });
+
+        // Role 0 can only see their own record
+        if (req.user.role < 1 && employee.workEmail !== req.user.email)
+            return res.status(403).json({ error: 'Sem permissão para ver este colaborador.' });
+
         res.status(200).json(employee);
     } catch (e) {
         console.error(e);
@@ -195,6 +206,14 @@ exports.addTraining = async (req, res) => {
         if (!name || !date || !hours)
             return res.status(400).json({ error: 'Campos obrigatórios em falta.' });
 
+        const trainingDate = new Date(date);
+        const today = new Date(); today.setHours(23, 59, 59, 999);
+        const minDate = new Date(today.getFullYear() - 1, 0, 1);
+        if (trainingDate > today)
+            return res.status(400).json({ error: 'Não é possível registar formações em datas futuras.' });
+        if (trainingDate < minDate)
+            return res.status(400).json({ error: 'Apenas são permitidas formações do ano corrente ou do ano anterior.' });
+
         const training = await prisma.training.create({
             data: {
                 name,
@@ -233,6 +252,17 @@ exports.updateTraining = async (req, res) => {
         if (!training) return res.status(404).json({ error: 'Formação não encontrada.' });
 
         const { name, date, hours } = req.body;
+
+        if (date) {
+            const trainingDate = new Date(date);
+            const today = new Date(); today.setHours(23, 59, 59, 999);
+            const minDate = new Date(today.getFullYear() - 1, 0, 1);
+            if (trainingDate > today)
+                return res.status(400).json({ error: 'Não é possível registar formações em datas futuras.' });
+            if (trainingDate < minDate)
+                return res.status(400).json({ error: 'Apenas são permitidas formações do ano corrente ou do ano anterior.' });
+        }
+
         const data = {};
         if (name) data.name = name;
         if (date) data.date = new Date(date);

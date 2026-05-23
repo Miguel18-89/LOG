@@ -247,7 +247,7 @@ exports.sendOvertimeEmail = async (req, res) => {
 
         if (!pdf) return res.status(400).json({ error: 'PDF em falta' });
 
-        const recipients = [...new Set(['miguel@emg.com.pt', user.email])];
+        const recipients = [...new Set([process.env.OVERTIME_RECIPIENT_EMAIL, user.email].filter(Boolean))];
 
         const commentBlock = comment
             ? `<p><strong>Comentário:</strong><br/>${comment.replace(/\n/g, '<br/>')}</p>`

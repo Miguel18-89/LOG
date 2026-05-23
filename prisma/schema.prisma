@@ -327,8 +327,9 @@ model VacationRequest {
   id          String    @id @default(uuid())
   startDate   DateTime
   endDate     DateTime
-  status      String    @default("pendente")
-  notes       String?
+  status          String    @default("pendente")
+  notes           String?
+  rejectionReason String?
   employee_id String
   employee    Employee  @relation(fields: [employee_id], references: [id], onDelete: Cascade)
   approved_by String?
