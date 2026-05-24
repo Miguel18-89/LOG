@@ -73,7 +73,7 @@ exports.forgotPassword = async (req, res) => {
       where: { id: user.id },
       data: {
         resetToken,
-        resetTokenExp: new Date(Date.now() + 15 * 60 * 1000),
+        resetTokenExp: new Date(Date.now() + 2 * 60 * 60 * 1000),
       },
     });
     await sendResetPasswordEmail(user.email, "Password Reset", resetToken, user.name);

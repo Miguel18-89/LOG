@@ -3,13 +3,9 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const cors = require('cors');
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(s => s.trim());
 app.use(cors({
-    origin: (origin, cb) => {
-        if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-        cb(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
+  origin: '*', // ou '*' para liberar geral
+  credentials: true,               // se estiver usando cookies/autenticação
 }));
 
 
