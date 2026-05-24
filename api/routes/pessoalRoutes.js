@@ -8,7 +8,7 @@ const auth = require('../middlewares/authAdminMiddleware');
 router.get('/',    auth.requireAuthorization, ctrl.getAllEmployees);
 router.post('/',   auth.requireAuthorization, auth.requireManager, ctrl.createEmployee);
 router.get('/:id', auth.requireAuthorization, ctrl.getEmployeeById);
-router.put('/:id', auth.requireAuthorization, auth.requireManager, ctrl.updateEmployee);
+router.put('/:id', auth.requireAuthorization, ctrl.updateEmployee);
 router.delete('/:id', auth.requireAuthorization, auth.requireManager, ctrl.deleteEmployee);
 
 router.post('/:id/medical-file',   auth.requireAuthorization, auth.requireManager, upload.single('file'), ctrl.uploadMedicalFile);

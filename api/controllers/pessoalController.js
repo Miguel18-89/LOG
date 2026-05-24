@@ -115,6 +115,10 @@ exports.updateEmployee = async (req, res) => {
         const exists = await prisma.employee.findUnique({ where: { id } });
         if (!exists) return res.status(404).json({ error: 'Colaborador não encontrado.' });
 
+        // Role 0 can only edit their own record
+        if (req.user.role < 1 && exists.workEmail !== req.user.email)
+            return res.status(403).json({ error: 'Sem permissão para editar este colaborador.' });
+
         const {
             fullName, nif, cc, niss, birthDate, address, phone,
             personalEmail, workEmail, emergencyContactName, emergencyContactRel, emergencyContactPhone,

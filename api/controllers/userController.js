@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
-const { sendEmail, sendNewUserEmail, sendNewRegisterEmail, sendUserApprovedEmail } = require("../modules/email") 
+const { sendEmail, sendNewUserEmail, sendNewRegisterEmail, sendUserApprovedEmail } = require("../modules/email");
+const { hashPin, isValidPinHash } = require('../utils/pinHash');
 
 const prisma = new PrismaClient();
 
@@ -120,7 +121,7 @@ exports.getAllUsers = async (req, res) => {
         prisma.user.count({ where: whereAllUsers }),
         ])
 
-        const allUsers = allUsersRaw.map(({ password, ...userWithoutPassword }) => userWithoutPassword);
+        const allUsers = allUsersRaw.map(({ password, pin, ...rest }) => ({ ...rest, pinExists: !!pin }));
         res.status(200).json({ allUsers });
 
     } catch (e) {
@@ -148,7 +149,8 @@ exports.getUserById = async (req, res) => {
             return res.status(404).json({ name: 'Desconhecido' });
         }
 
-        res.status(200).json(user);
+        const { pin, ...userWithoutPin } = user;
+        res.status(200).json({ ...userWithoutPin, pinExists: !!pin });
     } catch (error) {
         console.error(error);
         res.status(500).json({ name: 'Desconhecido' });
@@ -197,11 +199,12 @@ exports.updateUser = async (req, res) => {
         const approvedUser = approved === true && userExist.approved === false;
 
         if (pin !== undefined) {
-            if (pin !== null && !/^\d{4,8}$/.test(String(pin))) {
-                return res.status(400).json({ error: 'O PIN deve ser numérico e ter entre 4 a 8 dígitos.' });
-            }
             if (pin !== null) {
-                const pinConflict = await prisma.user.findFirst({ where: { pin: String(pin), id: { not: id } } });
+                if (!isValidPinHash(pin)) {
+                    return res.status(400).json({ error: 'Formato de PIN inválido.' });
+                }
+                const pinHmac = hashPin(pin);
+                const pinConflict = await prisma.user.findFirst({ where: { pin: pinHmac, id: { not: id } } });
                 if (pinConflict) return res.status(409).json({ error: 'Este PIN já está a ser utilizado por outro utilizador.' });
             }
         }
@@ -210,7 +213,7 @@ exports.updateUser = async (req, res) => {
         if (name) updatedData.name = name;
         if (role !== undefined) updatedData.role = role;
         if (approved !== undefined) updatedData.approved = approved;
-        if (pin !== undefined) updatedData.pin = pin !== null ? String(pin) : null;
+        if (pin !== undefined) updatedData.pin = pin !== null ? hashPin(pin) : null;
         if (password) {
             const saltRounds = 10;
             updatedData.password = await bcrypt.hash(password, saltRounds);
