@@ -2,7 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const nodemailer = require('nodemailer');
 const prisma = new PrismaClient();
 const { createOvertimeSchema, updateOvertimeSchema } = require('../schemas/overtimeSchema.js');
-const { hashPin, isValidPinHash } = require('../utils/pinHash');
+const { hashPin } = require('../utils/pinHash');
 
 function createTransporter() {
     return nodemailer.createTransport({
@@ -200,11 +200,10 @@ exports.publicCreateOvertime = async (req, res) => {
         const { pin, date, entryTime, exitTime, dinner, weekendLunch, isHoliday, nightType } = req.body;
 
         if (!pin) return res.status(400).json({ error: 'PIN em falta' });
-        if (!isValidPinHash(String(pin))) return res.status(400).json({ error: 'Formato de PIN inválido' });
+        if (!/^\d{4,8}$/.test(String(pin))) return res.status(400).json({ error: 'PIN inválido' });
         if (!date || !entryTime || !exitTime) return res.status(400).json({ error: 'Data, hora de entrada e hora de saída são obrigatórios' });
 
-        const pinHmac = hashPin(String(pin));
-        const user = await prisma.user.findFirst({ where: { pin: pinHmac } });
+        const user = await prisma.user.findFirst({ where: { pin: hashPin(String(pin)) } });
         if (!user) return res.status(401).json({ error: 'PIN inválido' });
 
         const parsedDate = new Date(date + 'T12:00:00Z');

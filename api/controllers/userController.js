@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const { sendEmail, sendNewUserEmail, sendNewRegisterEmail, sendUserApprovedEmail } = require("../modules/email");
-const { hashPin, isValidPinHash } = require('../utils/pinHash');
+const { hashPin } = require('../utils/pinHash');
 
 const prisma = new PrismaClient();
 
@@ -200,10 +200,10 @@ exports.updateUser = async (req, res) => {
 
         if (pin !== undefined) {
             if (pin !== null) {
-                if (!isValidPinHash(pin)) {
-                    return res.status(400).json({ error: 'Formato de PIN inválido.' });
+                if (!/^\d{4,8}$/.test(String(pin))) {
+                    return res.status(400).json({ error: 'O PIN deve ser numérico e ter entre 4 a 8 dígitos.' });
                 }
-                const pinHmac = hashPin(pin);
+                const pinHmac = hashPin(String(pin));
                 const pinConflict = await prisma.user.findFirst({ where: { pin: pinHmac, id: { not: id } } });
                 if (pinConflict) return res.status(409).json({ error: 'Este PIN já está a ser utilizado por outro utilizador.' });
             }

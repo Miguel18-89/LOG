@@ -14,12 +14,4 @@ function hashPin(sha256Hex) {
     return crypto.createHmac('sha256', pepper).update(sha256Hex).digest('hex');
 }
 
-/**
- * Validates that the received value looks like a SHA-256 hex string
- * (64 lowercase hex characters). The frontend always sends SHA-256(rawPin).
- */
-function isValidPinHash(value) {
-    return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
-}
-
-module.exports = { hashPin, isValidPinHash };
+module.exports = { hashPin };
