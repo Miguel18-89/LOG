@@ -94,6 +94,18 @@ adicionar documentos
 
 
 
+********** Deploy *************
+
+Fazer git pull
+
+abrir terminal
+
+    docker compose up -d --build
+    
+
+
+
+
 
 
 

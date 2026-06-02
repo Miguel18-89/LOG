@@ -26,7 +26,7 @@ exports.sendEmail = async (to, subject, message) => {
 }
 
 exports.sendResetPasswordEmail = async (to, subject, resetToken, userName) => {
-    const resetURL = `http://localhost:5173/reset-password/${resetToken}`;
+    const resetURL = `http://213.199.58.233:8080/reset-password/${resetToken}`;
     const source = fs.readFileSync(path.join(__dirname, 'ForgotPasswordEmail.html'), 'utf8');
     const template = handlebars.compile(source);
     const htmlContent = template({
@@ -60,7 +60,7 @@ exports.sendNewUserEmail = async (to, subject, name, email) => {
     const htmlContent = template({
         newUserName: name,
         newUserEmail: email,
-        signInLink: "http://localhost:5173/",
+        signInLink: "http://213.199.58.233:8080/",
 
     });
 
@@ -399,7 +399,7 @@ exports.sendUserApprovedEmail = async (to, subject, userName) => {
     const source = fs.readFileSync(path.join(__dirname, 'UserApproved.html'), 'utf8');
     const template = handlebars.compile(source);
     const htmlContent = template({
-        signInLink: "http://localhost:5173/",
+        signInLink: "http://213.199.58.233:8080/",
         userName: userName,
         
     });

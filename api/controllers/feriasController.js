@@ -74,7 +74,7 @@ exports.createVacation = async (req, res) => {
 
         // Notify all managers/admins
         const fmt = d => new Date(d).toLocaleDateString('pt-PT');
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://213.199.58.233:8080';
         const admins = await prisma.user.findMany({ where: { role: { gte: 1 }, is_active: true, approved: true } });
         for (const admin of admins) {
             sendEmail(
@@ -144,7 +144,7 @@ exports.updateStatus = async (req, res) => {
 
         if (status === 'cancelado' && wasApproved) {
             const admins = await prisma.user.findMany({ where: { role: { gte: 1 }, is_active: true, approved: true } });
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const frontendUrl = process.env.FRONTEND_URL || 'http://213.199.58.233:8080';
             for (const admin of admins) {
                 sendEmail(
                     admin.email,
