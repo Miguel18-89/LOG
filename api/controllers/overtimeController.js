@@ -19,7 +19,7 @@ function detectNightType(exitTime) {
     return null;
 }
 
-function calcOvertimeHours(date, entryTime, exitTime, isHoliday, dinner, weekendLunch) {
+function calcOvertimeHours(date, entryTime, exitTime, isHoliday, dinner, weekendLunch, exitIsHoliday = false) {
     const d = new Date(date);
     d.setUTCHours(12, 0, 0, 0);
     const dayOfWeek = d.getUTCDay();
@@ -28,8 +28,10 @@ function calcOvertimeHours(date, entryTime, exitTime, isHoliday, dinner, weekend
     const [eH, eM] = entryTime.split(':').map(Number);
     const [xH, xM] = exitTime.split(':').map(Number);
     let totalMin = (xH * 60 + xM) - (eH * 60 + eM);
-    if (totalMin <= 0) totalMin += 24 * 60;
+    const isOvernight = totalMin <= 0;
+    if (isOvernight) totalMin += 24 * 60;
 
+    // Whole shift on weekend/holiday — all hours at 100%
     if (isWeekend || isHoliday) {
         let workMin = totalMin;
         if (weekendLunch) workMin -= 60;
@@ -38,6 +40,39 @@ function calcOvertimeHours(date, entryTime, exitTime, isHoliday, dinner, weekend
         return { hours50: 0, hours75: 0, hours100: Math.round(workMin / 60 * 100) / 100 };
     }
 
+    // Auto-detect if exit falls on a weekend (next calendar day)
+    let exitOnWeekend = false;
+    if (isOvernight) {
+        const exitDate = new Date(d);
+        exitDate.setUTCDate(exitDate.getUTCDate() + 1);
+        const exitDay = exitDate.getUTCDay();
+        exitOnWeekend = exitDay === 0 || exitDay === 6;
+    }
+
+    // Overnight into weekend/holiday: split at midnight
+    // before midnight → weekday rules (50%/75%), after midnight → 100%
+    if (isOvernight && (exitOnWeekend || exitIsHoliday)) {
+        const minBefore = 24 * 60 - (eH * 60 + eM);
+        const minAfter = xH * 60 + xM;
+
+        let overtimeBefore = minBefore - 10 * 60;
+        if (dinner) overtimeBefore -= 60;
+
+        let hours50 = 0, hours75 = 0;
+        if (overtimeBefore > 0) {
+            const ot = overtimeBefore / 60;
+            hours50 = Math.round(Math.min(ot, 1) * 100) / 100;
+            hours75 = Math.round(Math.max(0, ot - 1) * 100) / 100;
+        }
+
+        let afterMin = minAfter;
+        if (weekendLunch) afterMin -= 60;
+        const hours100 = Math.round(Math.max(0, afterMin) / 60 * 100) / 100;
+
+        return { hours50, hours75, hours100 };
+    }
+
+    // Regular weekday overtime
     let overtimeMin = totalMin - 10 * 60;
     if (dinner) overtimeMin -= 60;
     if (overtimeMin <= 0) return { hours50: 0, hours75: 0, hours100: 0 };
@@ -57,7 +92,7 @@ exports.createOvertime = async (req, res) => {
             return res.status(400).json({ error: 'Dados inválidos', details: parseResult.error.format() });
         }
 
-        const { date, entryTime, exitTime, dinner, weekendLunch, isHoliday, nightType } = parseResult.data;
+        const { date, entryTime, exitTime, dinner, weekendLunch, isHoliday, exitIsHoliday, nightType } = parseResult.data;
         const userId = req.user.id;
 
         const dayStart = new Date(date); dayStart.setUTCHours(0, 0, 0, 0);
@@ -67,7 +102,7 @@ exports.createOvertime = async (req, res) => {
         });
         if (existing) return res.status(409).json({ error: 'Já existe um registo para esta data' });
 
-        const { hours50, hours75, hours100 } = calcOvertimeHours(date, entryTime, exitTime, isHoliday, dinner, weekendLunch);
+        const { hours50, hours75, hours100 } = calcOvertimeHours(date, entryTime, exitTime, isHoliday, dinner, weekendLunch, exitIsHoliday);
         const finalNightType = nightType || detectNightType(exitTime) || null;
 
         const newOvertime = await prisma.overtimeRecord.create({
@@ -160,14 +195,15 @@ exports.updateOvertime = async (req, res) => {
             dinner: parseResult.data.dinner ?? current.dinner,
             weekendLunch: parseResult.data.weekendLunch ?? current.weekendLunch,
             isHoliday: parseResult.data.isHoliday ?? false,
+            exitIsHoliday: parseResult.data.exitIsHoliday ?? false,
         };
 
         const { hours50, hours75, hours100 } = calcOvertimeHours(
             merged.date, merged.entryTime, merged.exitTime,
-            merged.isHoliday, merged.dinner, merged.weekendLunch
+            merged.isHoliday, merged.dinner, merged.weekendLunch, merged.exitIsHoliday
         );
 
-        const { isHoliday: _ignored, nightType: _nt, ...dataWithoutHoliday } = parseResult.data;
+        const { isHoliday: _ignored, exitIsHoliday: _eih, nightType: _nt, ...dataWithoutHoliday } = parseResult.data;
         const finalNightType = parseResult.data.nightType || detectNightType(merged.exitTime) || current.nightType || null;
 
         const updatedRecord = await prisma.overtimeRecord.update({
@@ -197,7 +233,7 @@ exports.deleteOvertime = async (req, res) => {
 
 exports.publicCreateOvertime = async (req, res) => {
     try {
-        const { pin, date, entryTime, exitTime, dinner, weekendLunch, isHoliday, nightType } = req.body;
+        const { pin, date, entryTime, exitTime, dinner, weekendLunch, isHoliday, exitIsHoliday, nightType } = req.body;
 
         if (!pin) return res.status(400).json({ error: 'PIN em falta' });
         if (!/^\d{4,8}$/.test(String(pin))) return res.status(400).json({ error: 'PIN inválido' });
@@ -217,7 +253,7 @@ exports.publicCreateOvertime = async (req, res) => {
         });
         if (existing) return res.status(409).json({ error: 'Já existe um registo para esta data' });
 
-        const { hours50, hours75, hours100 } = calcOvertimeHours(parsedDate, entryTime, exitTime, isHoliday || false, dinner || false, weekendLunch || false);
+        const { hours50, hours75, hours100 } = calcOvertimeHours(parsedDate, entryTime, exitTime, isHoliday || false, dinner || false, weekendLunch || false, exitIsHoliday || false);
         const finalNightType = nightType || detectNightType(exitTime) || null;
 
         await prisma.overtimeRecord.create({
