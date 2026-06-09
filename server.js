@@ -65,5 +65,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 
+const { startMondayReportJob } = require('./api/jobs/mondayReport');
+
 const PORT = 3000;
-app.listen(PORT, () => console.log(`Conectado ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Conectado ${PORT}`);
+    startMondayReportJob();
+});
