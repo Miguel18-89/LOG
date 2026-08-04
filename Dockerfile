@@ -20,4 +20,4 @@ RUN npx prisma generate
 EXPOSE 3000
 
 # Run migrations (optional for production)
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node server.js"]
