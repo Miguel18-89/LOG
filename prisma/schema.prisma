@@ -173,14 +173,17 @@ model Documents {
 model OvertimeRecord {
   id           String   @id @default(uuid())
   date         DateTime
-  entryTime    String
-  exitTime     String
+  recordType   String   @default("trabalho") // trabalho | ferias | falta | feriado
+  entryTime    String?
+  exitTime     String?
   dinner       Boolean  @default(false)
   weekendLunch Boolean  @default(false)
   hours50      Float?
   hours75      Float?
   hours100     Float?
   nightType    String?
+  client       String?
+  obra         String?
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
   user_id      String

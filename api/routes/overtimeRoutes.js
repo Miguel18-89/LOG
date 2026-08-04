@@ -6,6 +6,7 @@ const authMiddleware = require('../middlewares/authAdminMiddleware');
 
 overtimeRouter.post('/public', OvertimeController.publicCreateOvertime);
 overtimeRouter.post('/', authMiddleware.requireAuthorization, OvertimeController.createOvertime);
+overtimeRouter.post('/ferias', authMiddleware.requireAuthorization, OvertimeController.createVacationPeriod);
 overtimeRouter.post('/enviar', authMiddleware.requireAuthorization, OvertimeController.sendOvertimeEmail);
 overtimeRouter.get('/', authMiddleware.requireAuthorization, OvertimeController.getAllOvertime);
 overtimeRouter.get('/:id', authMiddleware.requireAuthorization, OvertimeController.getOvertimeById);
