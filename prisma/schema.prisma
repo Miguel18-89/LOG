@@ -27,6 +27,7 @@ model User {
   resetTokenExp           DateTime?
   approved                Boolean          @default(false)
   passwordChangedAt       DateTime?
+  hourlyRate              Float?
   createdStores           Store[]          @relation("CreatedByUser")
   updatedStores           Store[]          @relation("UpdatedByUser")
   updatedSurveys          Survey[]         @relation("UpdatedByUser")
@@ -46,6 +47,7 @@ model User {
   trainings               Training[]       @relation("TrainingByUser")
   vacationRequests        VacationRequest[] @relation("VacationByUser")
   vacationApprovals       VacationRequest[] @relation("VacationApprovedByUser")
+  hourBankEntries         HourBankEntry[]  @relation("HourBankByUser")
 }
 
 model Store {
@@ -188,6 +190,24 @@ model OvertimeRecord {
   updated_at   DateTime @updatedAt
   user_id      String
   createdBy    User     @relation("OvertimeByUser", fields: [user_id], references: [id])
+}
+
+model HourBankEntry {
+  id          String   @id @default(uuid())
+  type        String   // ajuste | credito | despesa
+  date        DateTime
+  description String?
+  hours       Float?   // só em 'credito': total de horas passadas (50%+75%+100%)
+  hours100    Float?   // só em 'credito': horas a 100% incluídas neste crédito
+  hours75     Float?   // só em 'credito': horas a 75% incluídas neste crédito
+  hours50     Float?   // só em 'credito': horas a 50% incluídas neste crédito
+  hourlyRate  Float?   // só em 'credito': taxa base aplicada no momento (snapshot)
+  value       Float    // € com sinal: positivo em ajuste/credito, negativo em despesa
+  month       Int?     // só em 'credito'
+  year        Int?     // só em 'credito'
+  created_at  DateTime @default(now())
+  user_id     String
+  createdBy   User     @relation("HourBankByUser", fields: [user_id], references: [id])
 }
 
 model RMA {

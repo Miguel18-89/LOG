@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "public"."HourBankEntry" ADD COLUMN     "hours100" DOUBLE PRECISION,
+ADD COLUMN     "hours75" DOUBLE PRECISION,
+ADD COLUMN     "hours50" DOUBLE PRECISION;
