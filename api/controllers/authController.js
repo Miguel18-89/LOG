@@ -40,11 +40,11 @@ exports.login = async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { password: _pw, pin: _pin, resetToken: _rt, resetTokenExp: _rte, ...userSafe } = user;
 
     res.status(200).json({
       message: 'Login realizado com sucesso.',
-      user: userWithoutPassword,
+      user: userSafe,
       token,
     });
   } catch (err) {
@@ -65,7 +65,7 @@ exports.forgotPassword = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     const resetToken = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, purpose: 'password_reset' },
       JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
@@ -96,13 +96,20 @@ exports.resetPassword = async (req, res) => {
 
     const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
-    if (payload.purpose && payload.purpose !== 'password_reset') {
+    if (payload.purpose !== 'password_reset') {
       return res.status(400).json({ error: 'Invalid token purpose' });
     }
 
     const user = await prisma.user.findUnique({ where: { id: payload.id } });
     if (!user || !user.is_active) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // O token tem de corresponder ao último token de reset emitido para este utilizador e ainda
+    // não pode ter expirado nem sido consumido — impede que um JWT de sessão normal (que nunca
+    // tem este campo preenchido na BD) seja reutilizado como token de reset de password.
+    if (!user.resetToken || user.resetToken !== token || !user.resetTokenExp || user.resetTokenExp.getTime() < Date.now()) {
+      return res.status(400).json({ error: 'Token inválido ou expirado' });
     }
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);

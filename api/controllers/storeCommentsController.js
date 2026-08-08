@@ -20,11 +20,11 @@ exports.createStoreComment = async (req, res) => {
             });
         }
 
-        const { storeId, userId, message } = parseResult.data;
+        const { storeId, message } = parseResult.data;
+        const userId = req.user.id;
 
-
-        if (!storeId || !userId) {
-            return res.status(400).json('Store Id and User Id required');
+        if (!storeId) {
+            return res.status(400).json('Store Id required');
         }
 
         const storeIdExist = await prisma.store.findUnique({
@@ -145,10 +145,7 @@ exports.updateComment = async (req, res) => {
 
         const { id } = req.params;
 
-        const {
-            message,
-            updated, userId
-        } = parseResult.data;
+        const { message } = parseResult.data;
 
         const updatedData = {
             message,
@@ -165,11 +162,18 @@ exports.updateComment = async (req, res) => {
             },
         });
 
+        if (!comment) {
+            return res.status(404).json({ error: 'Comment not found' });
+        }
+
+        if (comment.created_by !== req.user.id) {
+            return res.status(403).json({ error: "Only the creater of comment can edit" })
+        }
+
         const updatedComment = await prisma.comments.update({
             where: { id },
             data: updatedData,
         });
-
 
         const allUsers = await prisma.user.findMany({
             where: {
@@ -186,12 +190,6 @@ exports.updateComment = async (req, res) => {
             )
         );
 
-        if (comment.created_by !== userId) {
-            return res.status(403).json({ error: "Only the creater of comment can edit" })
-        }
-
-
-
         res.status(200).json({ message: 'Comentário actualizado com sucesso', updatedComment });
     } catch (e) {
         console.error("Erro ao editar o comentário", e);
@@ -207,6 +205,9 @@ exports.deleteComment = async (req, res) => {
         });
         if (!commentExist) {
             return res.status(404).json({ error: 'Comment not found' });
+        }
+        if (commentExist.created_by !== req.user.id) {
+            return res.status(403).json({ error: 'Only the creator of the comment can delete it' });
         }
         await prisma.comments.delete({
             where: { id: id },

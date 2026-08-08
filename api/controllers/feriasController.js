@@ -14,14 +14,22 @@ exports.getAllVacations = async (req, res) => {
         const start = new Date(year, 0, 1);
         const end = new Date(year, 11, 31, 23, 59, 59);
 
+        const dateRangeFilter = {
+            OR: [
+                { startDate: { gte: start, lte: end } },
+                { endDate: { gte: start, lte: end } },
+                { AND: [{ startDate: { lte: start } }, { endDate: { gte: end } }] },
+            ],
+        };
+
+        // Colaboradores comuns (role 0) só podem ver os seus próprios pedidos de férias — os de
+        // outros colegas podem conter notas pessoais/motivos de rejeição sensíveis.
+        const where = req.user.role < 1
+            ? { AND: [dateRangeFilter, { employee: { workEmail: req.user.email } }] }
+            : dateRangeFilter;
+
         const vacations = await prisma.vacationRequest.findMany({
-            where: {
-                OR: [
-                    { startDate: { gte: start, lte: end } },
-                    { endDate: { gte: start, lte: end } },
-                    { AND: [{ startDate: { lte: start } }, { endDate: { gte: end } }] },
-                ],
-            },
+            where,
             include: vacationInclude,
             orderBy: { startDate: 'asc' },
         });

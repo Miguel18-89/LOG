@@ -19,7 +19,8 @@ exports.saveDocumentMetadata = async (req, res) => {
             return res.status(400).json({ error: 'Nenhum ficheiro foi enviado' });
         }
 
-        const { uploaded_by, store_id } = result.data;
+        const { store_id } = result.data;
+        const uploaded_by = req.user.id;
 
         const fixEncoding = (str) => Buffer.from(str, 'latin1').toString('utf8');
         const originalName = fixEncoding(req.file.originalname);

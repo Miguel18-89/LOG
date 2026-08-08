@@ -170,9 +170,20 @@ exports.updateUser = async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        if (name && req.user.id !== id && req.user.role !== 2) {
+        const isSelf = req.user.id === id;
+        const isAdmin = req.user.role === 2;
+
+        // name/password/pin são dados pessoais: só o próprio ou um administrador os pode alterar.
+        if ((name !== undefined || password !== undefined || pin !== undefined) && !isSelf && !isAdmin) {
             return res.status(403).json({
-                error: 'Só o próprio utilizador ou um administrador pode alterar o nome.',
+                error: 'Só o próprio utilizador ou um administrador pode alterar estes dados.',
+            });
+        }
+
+        // role/approved são dados de permissões: só um administrador os pode alterar, mesmo para si próprio.
+        if ((role !== undefined || approved !== undefined) && !isAdmin) {
+            return res.status(403).json({
+                error: 'Só um administrador pode alterar o papel ou a aprovação de um utilizador.',
             });
         }
 
@@ -228,10 +239,10 @@ exports.updateUser = async (req, res) => {
             await sendUserApprovedEmail(updatedUser.email, 'Registo aprovado', updatedUser.name);
         }
 
-        const { password: _, ...userWithoutPassword } = updatedUser;
+        const { password: _pw, pin: _pin, resetToken: _rt, resetTokenExp: _rte, ...userSafe } = updatedUser;
         res.status(200).json({
             message: 'User updated successfully',
-            user: userWithoutPassword,
+            user: userSafe,
         });
     } catch (e) {
         console.error(e);
