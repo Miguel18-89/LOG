@@ -48,6 +48,8 @@ model User {
   vacationRequests        VacationRequest[] @relation("VacationByUser")
   vacationApprovals       VacationRequest[] @relation("VacationApprovedByUser")
   hourBankEntries         HourBankEntry[]  @relation("HourBankByUser")
+  workOrders              WorkOrder[]      @relation("WorkOrderByUser")
+  workOrderDocuments      WorkOrderDocument[] @relation("WorkOrderDocByUser")
 }
 
 model Store {
@@ -325,6 +327,7 @@ model Employee {
   medicalFitnessFilePath     String?
   trainings                  Training[]
   vacations                  VacationRequest[]
+  workOrders                 WorkOrder[]
   created_at                 DateTime   @default(now())
   updated_at                 DateTime   @updatedAt
   user_id                    String
@@ -362,4 +365,42 @@ model VacationRequest {
   updated_at  DateTime  @updatedAt
   created_by  String
   createdBy   User      @relation("VacationByUser", fields: [created_by], references: [id])
+}
+
+// Folha de obra: o que foi feito no terreno, com que materiais, por quem, e confirmado pelo cliente.
+model WorkOrder {
+  id            String    @id @default(uuid())
+  orderNumber   Int       @unique @default(autoincrement())
+  client        String
+  obra          String
+  type          String    // instalacao | manutencao | reparacao
+  status        String    @default("em_curso") // em_curso | concluida
+  date          DateTime
+  startTime     String?   // "HH:MM"
+  endTime       String?   // "HH:MM"
+  tasks         String
+  materials     String
+  notes         String?
+  signatureData String?   // PNG em data URI base64
+  signedByName  String?
+  signedAt      DateTime?
+  technicians   Employee[]
+  documents     WorkOrderDocument[]
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  user_id       String
+  createdBy     User      @relation("WorkOrderByUser", fields: [user_id], references: [id])
+}
+
+model WorkOrderDocument {
+  id           String    @id @default(uuid())
+  kind         String    @default("documento") // documento | foto
+  filename     String
+  originalName String
+  path         String
+  uploadedAt   DateTime  @default(now())
+  workOrder_id String
+  workOrder    WorkOrder @relation(fields: [workOrder_id], references: [id], onDelete: Cascade)
+  uploaded_by  String
+  uploadedBy   User      @relation("WorkOrderDocByUser", fields: [uploaded_by], references: [id])
 }

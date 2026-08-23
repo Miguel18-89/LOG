@@ -38,6 +38,7 @@ const rmaRouter = require('./api/routes/rmaRoutes');
 const frotaRouter = require('./api/routes/frotaRoutes');
 const pessoalRouter = require('./api/routes/pessoalRoutes');
 const feriasRouter  = require('./api/routes/feriasRoutes');
+const workOrderRouter = require('./api/routes/workOrderRoutes');
 
 
 
@@ -61,6 +62,7 @@ app.use('/emg/rma', rmaRouter);
 app.use('/emg/frota', frotaRouter);
 app.use('/emg/pessoal', pessoalRouter);
 app.use('/emg/ferias',  feriasRouter);
+app.use('/emg/obras',   workOrderRouter);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
