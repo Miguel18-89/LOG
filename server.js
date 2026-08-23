@@ -63,7 +63,11 @@ app.use('/emg/frota', frotaRouter);
 app.use('/emg/pessoal', pessoalRouter);
 app.use('/emg/ferias',  feriasRouter);
 app.use('/emg/obras',   workOrderRouter);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// A pasta uploads/ NÃO é servida estaticamente: expunha fichas de aptidão médica,
+// documentos de lojas e ficheiros de obras a quem soubesse o nome do ficheiro, sem
+// qualquer autenticação. Todos os ficheiros são entregues pelas rotas autenticadas
+// dos respetivos módulos (pessoal, documents, obras).
 
 
 
