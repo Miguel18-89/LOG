@@ -5,9 +5,11 @@ const fs = require('fs/promises');
 const prisma = new PrismaClient();
 
 const {
-    TYPE_VALID, STATUS_VALID, DOC_KINDS,
+    TYPE_VALID, STATUS_VALID, DOC_KINDS, ALLOWED_UPLOAD_EXTS, ALLOWED_UPLOAD_MIMES,
     workOrderSchema, updateWorkOrderSchema, signatureSchema, sendReportSchema,
 } = require('../schemas/workOrderSchema.js');
+
+const ROLE_ADMIN = 2;
 
 const TYPE_LABELS = {
     instalacao: 'Instalação',
@@ -17,12 +19,34 @@ const TYPE_LABELS = {
 
 const workOrderInclude = {
     createdBy: { select: { id: true, name: true } },
-    technicians: { select: { id: true, fullName: true }, orderBy: { fullName: 'asc' } },
+    updatedBy: { select: { id: true, name: true } },
+    // workEmail é lido para decidir permissões e removido antes de responder.
+    technicians: { select: { id: true, fullName: true, workEmail: true }, orderBy: { fullName: 'asc' } },
     documents: {
         select: { id: true, kind: true, originalName: true, uploadedAt: true },
         orderBy: { uploadedAt: 'asc' },
     },
 };
+
+// A listagem não devolve `signatureData`: são imagens de assinaturas manuscritas de
+// clientes (dados pessoais) e nenhum dos clientes precisa delas na lista — só o
+// detalhe as usa. `signedAt`/`signedByName` chegam para mostrar "Assinada".
+const workOrderListSelect = {
+    id: true, orderNumber: true, client: true, obra: true, type: true, status: true,
+    date: true, startTime: true, endTime: true, tasks: true, materials: true, notes: true,
+    signedByName: true, signedAt: true, externalTechnicians: true,
+    created_at: true, updated_at: true, user_id: true,
+    createdBy: { select: { id: true, name: true } },
+    updatedBy: { select: { id: true, name: true } },
+    // workEmail é lido para decidir permissões e removido antes de responder.
+    technicians: { select: { id: true, fullName: true, workEmail: true }, orderBy: { fullName: 'asc' } },
+    documents: {
+        select: { id: true, kind: true, originalName: true, uploadedAt: true },
+        orderBy: { uploadedAt: 'asc' },
+    },
+};
+
+const MAX_PAGE_SIZE = 100;
 
 function createTransporter() {
     return nodemailer.createTransport({
@@ -35,6 +59,68 @@ function createTransporter() {
 // O multer guarda com o nome original em latin1; o resto da app corrige da mesma forma.
 function fixEncoding(str) {
     return Buffer.from(str, 'latin1').toString('utf8');
+}
+
+// Escapa texto que vai para dentro do HTML do email. Sem isto, o nome do cliente
+// ou a mensagem podiam injetar markup no email enviado a partir do domínio da empresa.
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/** Regra única de quem pode alterar uma obra. `technicians` tem de incluir workEmail. */
+function userCanEdit(user, workOrder) {
+    if (user.role >= ROLE_ADMIN) return true;
+    if (workOrder.user_id === user.id) return true;
+    const email = user.email?.toLowerCase();
+    return !!email && (workOrder.technicians ?? [])
+        .some(t => t.workEmail?.toLowerCase() === email);
+}
+
+/**
+ * Prepara a obra para resposta: acrescenta `canEdit` (para os clientes saberem que
+ * ações mostrar, sem duplicarem a regra) e retira o workEmail dos técnicos, que só
+ * é lido internamente para decidir permissões.
+ */
+function withPermissions(workOrder, user) {
+    const canEdit = userCanEdit(user, workOrder);
+    const technicians = (workOrder.technicians ?? []).map(({ workEmail, ...t }) => t);
+    return { ...workOrder, technicians, canEdit, canDelete: user.role >= ROLE_ADMIN };
+}
+
+/**
+ * Carrega a obra e decide se o utilizador a pode alterar.
+ * Podem editar: administradores, os técnicos associados à obra (ligados por
+ * Employee.workEmail === user.email, o mesmo critério usado nas Férias) e quem
+ * a criou — sem esta última condição, quem cria uma obra sem se associar como
+ * técnico ficaria imediatamente sem acesso ao próprio registo.
+ * Devolve { workOrder } ou { error } já respondido.
+ */
+async function loadEditableWorkOrder(req, res) {
+    const workOrder = await prisma.workOrder.findUnique({
+        where: { id: req.params.id },
+        include: { technicians: { select: { id: true, workEmail: true } } },
+    });
+    if (!workOrder) {
+        res.status(404).json({ error: 'Obra não encontrada.' });
+        return null;
+    }
+    if (req.user.role >= ROLE_ADMIN) return workOrder;
+    if (workOrder.user_id === req.user.id) return workOrder;
+
+    const email = req.user.email?.toLowerCase();
+    const isTechnician = email
+        && workOrder.technicians.some(t => t.workEmail?.toLowerCase() === email);
+    if (isTechnician) return workOrder;
+
+    res.status(403).json({
+        error: 'Só os técnicos associados a esta obra ou um administrador a podem alterar.',
+    });
+    return null;
 }
 
 function zodError(res, parseResult) {
@@ -51,18 +137,19 @@ exports.createWorkOrder = async (req, res) => {
         const parsed = workOrderSchema.safeParse(req.body);
         if (!parsed.success) return zodError(res, parsed);
 
-        const { technicianIds, notes, ...data } = parsed.data;
+        const { technicianIds, externalTechnicians, notes, ...data } = parsed.data;
 
         const workOrder = await prisma.workOrder.create({
             data: {
                 ...data,
                 notes: notes || null,
-                technicians: { connect: technicianIds.map(id => ({ id })) },
+                externalTechnicians: externalTechnicians ?? [],
+                technicians: { connect: (technicianIds ?? []).map(id => ({ id })) },
                 createdBy: { connect: { id: req.user.id } },
             },
             include: workOrderInclude,
         });
-        res.status(201).json(workOrder);
+        res.status(201).json(withPermissions(workOrder, req.user));
     } catch (e) {
         console.error('Erro ao criar obra:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
@@ -71,8 +158,8 @@ exports.createWorkOrder = async (req, res) => {
 
 exports.getAllWorkOrders = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const pageSize = parseInt(req.query.pageSize) || 10;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const pageSize = Math.min(Math.max(1, parseInt(req.query.pageSize) || 10), MAX_PAGE_SIZE);
         const { client, type, status, from, to } = req.query;
 
         const where = {};
@@ -91,12 +178,12 @@ exports.getAllWorkOrders = async (req, res) => {
                 skip: (page - 1) * pageSize,
                 take: pageSize,
                 orderBy: { date: 'desc' },
-                include: workOrderInclude,
+                select: workOrderListSelect,
             }),
             prisma.workOrder.count({ where }),
         ]);
 
-        res.status(200).json({ data, total });
+        res.status(200).json({ data: data.map(o => withPermissions(o, req.user)), total });
     } catch (e) {
         console.error('Erro ao listar obras:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
@@ -110,7 +197,7 @@ exports.getWorkOrderById = async (req, res) => {
             include: workOrderInclude,
         });
         if (!workOrder) return res.status(404).json({ error: 'Obra não encontrada.' });
-        res.status(200).json(workOrder);
+        res.status(200).json(withPermissions(workOrder, req.user));
     } catch (e) {
         console.error('Erro ao obter obra:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
@@ -120,8 +207,7 @@ exports.getWorkOrderById = async (req, res) => {
 exports.updateWorkOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const exists = await prisma.workOrder.findUnique({ where: { id } });
-        if (!exists) return res.status(404).json({ error: 'Obra não encontrada.' });
+        if (!await loadEditableWorkOrder(req, res)) return;
 
         const parsed = updateWorkOrderSchema.safeParse(req.body);
         if (!parsed.success) return zodError(res, parsed);
@@ -132,6 +218,7 @@ exports.updateWorkOrder = async (req, res) => {
             where: { id },
             data: {
                 ...fields,
+                updatedBy: { connect: { id: req.user.id } },
                 // `set` substitui a lista inteira, para que remover um técnico funcione.
                 ...(technicianIds !== undefined
                     ? { technicians: { set: technicianIds.map(tid => ({ id: tid })) } }
@@ -139,7 +226,7 @@ exports.updateWorkOrder = async (req, res) => {
             },
             include: workOrderInclude,
         });
-        res.status(200).json(workOrder);
+        res.status(200).json(withPermissions(workOrder, req.user));
     } catch (e) {
         console.error('Erro ao atualizar obra:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
@@ -177,8 +264,7 @@ exports.deleteWorkOrder = async (req, res) => {
 exports.saveSignature = async (req, res) => {
     try {
         const { id } = req.params;
-        const exists = await prisma.workOrder.findUnique({ where: { id } });
-        if (!exists) return res.status(404).json({ error: 'Obra não encontrada.' });
+        if (!await loadEditableWorkOrder(req, res)) return;
 
         const parsed = signatureSchema.safeParse(req.body);
         if (!parsed.success) return zodError(res, parsed);
@@ -189,10 +275,11 @@ exports.saveSignature = async (req, res) => {
                 signatureData: parsed.data.signatureData,
                 signedByName: parsed.data.signedByName,
                 signedAt: new Date(),
+                updatedBy: { connect: { id: req.user.id } },
             },
             include: workOrderInclude,
         });
-        res.status(200).json(workOrder);
+        res.status(200).json(withPermissions(workOrder, req.user));
     } catch (e) {
         console.error('Erro ao guardar assinatura:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
@@ -201,16 +288,23 @@ exports.saveSignature = async (req, res) => {
 
 exports.deleteSignature = async (req, res) => {
     try {
+        // A rota já exige administrador: a assinatura é a prova de aceitação do
+        // cliente e não deve poder ser destruída por quem executou a obra.
         const { id } = req.params;
         const exists = await prisma.workOrder.findUnique({ where: { id } });
         if (!exists) return res.status(404).json({ error: 'Obra não encontrada.' });
 
         const workOrder = await prisma.workOrder.update({
             where: { id },
-            data: { signatureData: null, signedByName: null, signedAt: null },
+            data: {
+                signatureData: null,
+                signedByName: null,
+                signedAt: null,
+                updatedBy: { connect: { id: req.user.id } },
+            },
             include: workOrderInclude,
         });
-        res.status(200).json(workOrder);
+        res.status(200).json(withPermissions(workOrder, req.user));
     } catch (e) {
         console.error('Erro ao remover assinatura:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
@@ -222,12 +316,26 @@ exports.deleteSignature = async (req, res) => {
 exports.uploadDocument = async (req, res) => {
     try {
         const { id } = req.params;
-        const workOrder = await prisma.workOrder.findUnique({ where: { id } });
-        if (!workOrder) return res.status(404).json({ error: 'Obra não encontrada.' });
+        const workOrder = await loadEditableWorkOrder(req, res);
+        if (!workOrder) {
+            // O multer já gravou o ficheiro em disco antes de chegarmos aqui.
+            if (req.file) await fs.unlink(req.file.path).catch(() => {});
+            return;
+        }
         if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro foi enviado.' });
 
         const originalName = fixEncoding(req.file.originalname);
         const kind = DOC_KINDS.includes(req.body.kind) ? req.body.kind : 'documento';
+
+        // Lista branca: sem isto era possível guardar .html/.svg com <script>.
+        const ext = path.extname(originalName).toLowerCase();
+        const mime = (req.file.mimetype || '').toLowerCase();
+        if (!ALLOWED_UPLOAD_EXTS.includes(ext) || !ALLOWED_UPLOAD_MIMES.includes(mime)) {
+            await fs.unlink(req.file.path).catch(() => {});
+            return res.status(400).json({
+                error: `Tipo de ficheiro não permitido. Aceites: ${ALLOWED_UPLOAD_EXTS.join(', ')}`,
+            });
+        }
 
         const document = await prisma.workOrderDocument.create({
             data: {
@@ -240,8 +348,8 @@ exports.uploadDocument = async (req, res) => {
             },
         });
 
-        // Os esquemas de implementação podem ser imagens, por isso preserva-se a extensão real.
-        const ext = path.extname(originalName) || '';
+        // Os esquemas de implementação podem ser imagens, por isso preserva-se a extensão
+        // real — mas só depois de validada contra a lista branca acima.
         const storedName = `${document.id}${ext}`;
         const oldPath = path.resolve(req.file.path);
         const newPath = path.resolve(path.dirname(oldPath), storedName);
@@ -262,7 +370,11 @@ exports.uploadDocument = async (req, res) => {
 
 exports.getDocument = async (req, res) => {
     try {
-        const doc = await prisma.workOrderDocument.findUnique({ where: { id: req.params.docId } });
+        // O documento tem de pertencer à obra do URL: procurar só por docId permitia
+        // obter qualquer documento através de uma obra arbitrária.
+        const doc = await prisma.workOrderDocument.findFirst({
+            where: { id: req.params.docId, workOrder_id: req.params.id },
+        });
         if (!doc) return res.status(404).json({ error: 'Documento não encontrado.' });
         res.download(path.resolve(doc.path), doc.originalName);
     } catch (e) {
@@ -273,7 +385,11 @@ exports.getDocument = async (req, res) => {
 
 exports.deleteDocument = async (req, res) => {
     try {
-        const doc = await prisma.workOrderDocument.findUnique({ where: { id: req.params.docId } });
+        if (!await loadEditableWorkOrder(req, res)) return;
+
+        const doc = await prisma.workOrderDocument.findFirst({
+            where: { id: req.params.docId, workOrder_id: req.params.id },
+        });
         if (!doc) return res.status(404).json({ error: 'Documento não encontrado.' });
 
         try {
@@ -283,6 +399,10 @@ exports.deleteDocument = async (req, res) => {
         }
 
         await prisma.workOrderDocument.delete({ where: { id: doc.id } });
+        await prisma.workOrder.update({
+            where: { id: req.params.id },
+            data: { updatedBy: { connect: { id: req.user.id } } },
+        });
         res.status(200).json({ message: 'Documento eliminado.' });
     } catch (e) {
         console.error('Erro ao eliminar documento:', e);
@@ -295,11 +415,14 @@ exports.deleteDocument = async (req, res) => {
 exports.sendWorkOrderEmail = async (req, res) => {
     try {
         const { id } = req.params;
+        // Enviar o relatório a um cliente é uma ação em nome da empresa: exige as
+        // mesmas permissões que editar a obra.
+        if (!await loadEditableWorkOrder(req, res)) return;
+
         const workOrder = await prisma.workOrder.findUnique({
             where: { id },
             include: workOrderInclude,
         });
-        if (!workOrder) return res.status(404).json({ error: 'Obra não encontrada.' });
 
         const parsed = sendReportSchema.safeParse(req.body);
         if (!parsed.success) return zodError(res, parsed);
@@ -319,7 +442,7 @@ exports.sendWorkOrderEmail = async (req, res) => {
         const dateStr = new Date(workOrder.date).toISOString().slice(0, 10);
 
         const messageBlock = message
-            ? `<p>${message.replace(/\n/g, '<br/>')}</p>`
+            ? `<p>${escapeHtml(message).replace(/\n/g, '<br/>')}</p>`
             : '';
 
         const transporter = createTransporter();
@@ -330,13 +453,19 @@ exports.sendWorkOrderEmail = async (req, res) => {
             html: `
                 <p>Segue em anexo o relatório da obra <strong>#${workOrder.orderNumber}</strong>.</p>
                 <p>
-                    <strong>Cliente:</strong> ${workOrder.client}<br/>
-                    <strong>Obra:</strong> ${workOrder.obra}<br/>
-                    <strong>Tipo:</strong> ${TYPE_LABELS[workOrder.type] ?? workOrder.type}<br/>
+                    <strong>Cliente:</strong> ${escapeHtml(workOrder.client)}<br/>
+                    <strong>Obra:</strong> ${escapeHtml(workOrder.obra)}<br/>
+                    <strong>Tipo:</strong> ${escapeHtml(TYPE_LABELS[workOrder.type] ?? workOrder.type)}<br/>
                     <strong>Data:</strong> ${new Date(workOrder.date).toLocaleDateString('pt-PT')}${
                         workOrder.startTime && workOrder.endTime
                             ? ` (${workOrder.startTime} — ${workOrder.endTime})`
                             : ''
+                    }<br/>
+                    <strong>Técnicos:</strong> ${
+                        escapeHtml([
+                            ...(workOrder.technicians ?? []).map(t => t.fullName),
+                            ...(workOrder.externalTechnicians ?? []),
+                        ].join(', ')) || '—'
                     }
                 </p>
                 ${messageBlock}

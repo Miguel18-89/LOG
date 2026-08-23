@@ -49,6 +49,7 @@ model User {
   vacationApprovals       VacationRequest[] @relation("VacationApprovedByUser")
   hourBankEntries         HourBankEntry[]  @relation("HourBankByUser")
   workOrders              WorkOrder[]      @relation("WorkOrderByUser")
+  workOrdersUpdated       WorkOrder[]      @relation("WorkOrderUpdatedByUser")
   workOrderDocuments      WorkOrderDocument[] @relation("WorkOrderDocByUser")
 }
 
@@ -385,11 +386,16 @@ model WorkOrder {
   signedByName  String?
   signedAt      DateTime?
   technicians   Employee[]
+  // Técnicos ocasionais que não constam do módulo Pessoal — guardados só como nome.
+  externalTechnicians String[] @default([])
   documents     WorkOrderDocument[]
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
   user_id       String
   createdBy     User      @relation("WorkOrderByUser", fields: [user_id], references: [id])
+  // Rasto de auditoria: vários técnicos podem editar a mesma obra.
+  updated_by    String?
+  updatedBy     User?     @relation("WorkOrderUpdatedByUser", fields: [updated_by], references: [id])
 }
 
 model WorkOrderDocument {
