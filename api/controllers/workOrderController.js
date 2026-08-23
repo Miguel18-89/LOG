@@ -264,7 +264,17 @@ exports.deleteWorkOrder = async (req, res) => {
 exports.saveSignature = async (req, res) => {
     try {
         const { id } = req.params;
-        if (!await loadEditableWorkOrder(req, res)) return;
+        const existing = await loadEditableWorkOrder(req, res);
+        if (!existing) return;
+
+        // A assinatura é a prova de aceitação do cliente: uma vez recolhida não pode
+        // ser substituída. Se estiver errada, um administrador remove-a e só depois
+        // pode ser recolhida de novo.
+        if (existing.signatureData) {
+            return res.status(409).json({
+                error: 'Esta obra já está assinada. Para corrigir, um administrador tem de remover a assinatura primeiro.',
+            });
+        }
 
         const parsed = signatureSchema.safeParse(req.body);
         if (!parsed.success) return zodError(res, parsed);
