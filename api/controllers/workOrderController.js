@@ -48,6 +48,13 @@ const workOrderListSelect = {
 
 const MAX_PAGE_SIZE = 100;
 
+/** Fim do dia indicado, para o filtro "ate" incluir as obras dessa data. */
+function endOfDay(value) {
+    const d = new Date(value);
+    d.setHours(23, 59, 59, 999);
+    return d;
+}
+
 function createTransporter() {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
@@ -160,7 +167,7 @@ exports.getAllWorkOrders = async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const pageSize = Math.min(Math.max(1, parseInt(req.query.pageSize) || 10), MAX_PAGE_SIZE);
-        const { client, type, status, from, to } = req.query;
+        const { client, type, status, from, to, technician } = req.query;
 
         const where = {};
         if (client) where.client = { contains: client, mode: 'insensitive' };
@@ -169,7 +176,25 @@ exports.getAllWorkOrders = async (req, res) => {
         if (from || to) {
             where.date = {};
             if (from) where.date.gte = new Date(from);
-            if (to) where.date.lte = new Date(to);
+            // `to` chega como data sem hora: sem isto, obras desse mesmo dia ficavam
+            // de fora, porque a comparacao seria contra a meia-noite.
+            if (to) where.date.lte = endOfDay(to);
+        }
+
+        // Os tecnicos externos sao um array de texto, e o Prisma nao faz procura
+        // parcial dentro de arrays — daí a consulta em SQL para essa parte.
+        if (technician) {
+            const term = `%${technician}%`;
+            const matches = await prisma.$queryRaw`
+                SELECT "id" FROM "WorkOrder"
+                WHERE EXISTS (
+                    SELECT 1 FROM unnest("externalTechnicians") AS nome
+                    WHERE nome ILIKE ${term}
+                )`;
+            where.OR = [
+                { technicians: { some: { fullName: { contains: technician, mode: 'insensitive' } } } },
+                { id: { in: matches.map(r => r.id) } },
+            ];
         }
 
         const [data, total] = await Promise.all([

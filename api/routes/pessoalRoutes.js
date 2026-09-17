@@ -7,6 +7,9 @@ const auth = require('../middlewares/authAdminMiddleware');
 
 router.get('/',    auth.requireAuthorization, ctrl.getAllEmployees);
 router.post('/',   auth.requireAuthorization, auth.requireManager, ctrl.createEmployee);
+// Antes de '/:id', senao o parametro apanhava a palavra 'tecnicos'.
+router.get('/tecnicos', auth.requireAuthorization, ctrl.getTechnicianOptions);
+
 router.get('/:id', auth.requireAuthorization, ctrl.getEmployeeById);
 router.put('/:id', auth.requireAuthorization, ctrl.updateEmployee);
 router.delete('/:id', auth.requireAuthorization, auth.requireManager, ctrl.deleteEmployee);

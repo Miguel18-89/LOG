@@ -384,3 +384,22 @@ exports.deleteTraining = async (req, res) => {
         res.status(500).json({ error: 'Algo correu mal.' });
     }
 };
+
+/**
+ * Lista reduzida de colaboradores (só id e nome), para os seletores de técnicos.
+ * getAllEmployees devolve NIF, IBAN e dados médicos, por isso está limitado a
+ * gestores — mas qualquer técnico precisa de associar colegas a uma obra, e para
+ * isso o nome chega.
+ */
+exports.getTechnicianOptions = async (req, res) => {
+    try {
+        const employees = await prisma.employee.findMany({
+            orderBy: { fullName: 'asc' },
+            select: { id: true, fullName: true },
+        });
+        res.status(200).json(employees);
+    } catch (e) {
+        console.error('Erro ao listar técnicos:', e);
+        res.status(500).json({ error: 'Algo correu mal.' });
+    }
+};
