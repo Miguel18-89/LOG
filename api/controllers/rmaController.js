@@ -46,7 +46,11 @@ exports.getAllRMAs = async (req, res) => {
                 skip: (parseInt(page) - 1) * parseInt(pageSize),
                 take: parseInt(pageSize),
                 orderBy: { rmaNumber: 'asc' },
-                include: { createdBy: { select: { id: true, name: true } } },
+                include: {
+                    createdBy: { select: { id: true, name: true } },
+                    // Pedido que originou este RMA, para se ver a origem.
+                    ticket: { select: { id: true, ticketNumber: true, title: true } },
+                },
             }),
             prisma.rMA.count({ where }),
         ]);
@@ -64,6 +68,7 @@ exports.getRMAById = async (req, res) => {
             where: { id: req.params.id },
             include: {
                 createdBy: { select: { id: true, name: true } },
+                ticket: { select: { id: true, ticketNumber: true, title: true } },
                 updates: {
                     include: { createdBy: { select: { id: true, name: true } } },
                     orderBy: { created_at: 'asc' },
@@ -103,6 +108,7 @@ exports.updateRMA = async (req, res) => {
             },
             include: {
                 createdBy: { select: { id: true, name: true } },
+                ticket: { select: { id: true, ticketNumber: true, title: true } },
                 updates: { include: { createdBy: { select: { id: true, name: true } } }, orderBy: { created_at: 'asc' } },
             },
         });

@@ -51,6 +51,10 @@ model User {
   workOrders              WorkOrder[]      @relation("WorkOrderByUser")
   workOrdersUpdated       WorkOrder[]      @relation("WorkOrderUpdatedByUser")
   workOrderDocuments      WorkOrderDocument[] @relation("WorkOrderDocByUser")
+  ticketsCreated          Ticket[]         @relation("TicketByUser")
+  ticketsAssigned         Ticket[]         @relation("TicketAssignee")
+  ticketEntries           TicketEntry[]    @relation("TicketEntryByUser")
+  ticketDocuments         TicketDocument[] @relation("TicketDocByUser")
 }
 
 model Store {
@@ -231,6 +235,10 @@ model RMA {
   updated_at     DateTime    @updatedAt
   user_id        String
   createdBy      User        @relation("RMAByUser", fields: [user_id], references: [id])
+  // Pedido que originou este RMA, quando existe. Anulável, pelas mesmas razões
+  // que em WorkOrder.
+  ticket_id      String?
+  ticket         Ticket?     @relation(fields: [ticket_id], references: [id], onDelete: SetNull)
 }
 
 model RMAUpdate {
@@ -396,6 +404,10 @@ model WorkOrder {
   // Rasto de auditoria: vários técnicos podem editar a mesma obra.
   updated_by    String?
   updatedBy     User?     @relation("WorkOrderUpdatedByUser", fields: [updated_by], references: [id])
+  // Pedido que originou esta obra, quando existe. Anulável: as obras registadas
+  // antes dos tickets, e as que nascem sem pedido, continuam válidas.
+  ticket_id     String?
+  ticket        Ticket?   @relation(fields: [ticket_id], references: [id], onDelete: SetNull)
 }
 
 model WorkOrderDocument {
@@ -409,4 +421,64 @@ model WorkOrderDocument {
   workOrder    WorkOrder @relation(fields: [workOrder_id], references: [id], onDelete: Cascade)
   uploaded_by  String
   uploadedBy   User      @relation("WorkOrderDocByUser", fields: [uploaded_by], references: [id])
+}
+
+/// Pedido de assistência ou tarefa interna. É a peça anterior à obra e ao RMA:
+/// regista-se o pedido, e o trabalho que dele resultar fica ligado por Ticket_id.
+model Ticket {
+  id           String    @id @default(uuid())
+  ticketNumber Int       @unique @default(autoincrement())
+  type         String    // assistencia | tarefa
+  title        String
+  description  String
+  // Vazios numa tarefa interna, que não tem cliente nem local.
+  client       String?
+  location     String?
+  requestedBy  String?   // quem pediu, do lado do cliente
+  priority     String    @default("normal") // baixa | normal | alta | urgente
+  status       String    @default("aberto") // aberto | atribuido | em_curso | fechado | cancelado
+  expectedDate DateTime? // data prevista
+  dueDate      DateTime? // data limite
+  closingNote  String?
+  closedAt     DateTime?
+  assignee_id  String?
+  assignee     User?     @relation("TicketAssignee", fields: [assignee_id], references: [id])
+  entries      TicketEntry[]
+  documents    TicketDocument[]
+  // Um pedido pode dar origem a mais do que uma obra (duas visitas) ou RMA.
+  workOrders   WorkOrder[]
+  rmas         RMA[]
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  user_id      String
+  createdBy    User      @relation("TicketByUser", fields: [user_id], references: [id])
+}
+
+/// Linha de tempo do ticket: mensagens escritas por pessoas e alterações registadas
+/// pelo sistema, na mesma tabela, para se lerem juntas por ordem cronológica.
+model TicketEntry {
+  id         String   @id @default(uuid())
+  kind       String   // mensagem | alteracao
+  message    String?  // kind = mensagem
+  field      String?  // kind = alteracao: status | assignee | priority | expectedDate | dueDate | title | description
+  fromValue  String?
+  toValue    String?
+  created_at DateTime @default(now())
+  ticket_id  String
+  ticket     Ticket   @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  user_id    String
+  createdBy  User     @relation("TicketEntryByUser", fields: [user_id], references: [id])
+}
+
+model TicketDocument {
+  id           String   @id @default(uuid())
+  kind         String   @default("documento") // documento | foto
+  filename     String
+  originalName String
+  path         String
+  uploadedAt   DateTime @default(now())
+  ticket_id    String
+  ticket       Ticket   @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  uploaded_by  String
+  uploadedBy   User     @relation("TicketDocByUser", fields: [uploaded_by], references: [id])
 }

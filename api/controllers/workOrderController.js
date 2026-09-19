@@ -18,6 +18,8 @@ const TYPE_LABELS = {
 };
 
 const workOrderInclude = {
+    // Pedido que originou este registo, para se ver a origem do lado do trabalho.
+    ticket: { select: { id: true, ticketNumber: true, title: true } },
     createdBy: { select: { id: true, name: true } },
     updatedBy: { select: { id: true, name: true } },
     // workEmail é lido para decidir permissões e removido antes de responder.
@@ -36,6 +38,8 @@ const workOrderListSelect = {
     date: true, startTime: true, endTime: true, tasks: true, materials: true, notes: true,
     signedByName: true, signedAt: true, externalTechnicians: true,
     created_at: true, updated_at: true, user_id: true,
+    // Pedido que originou este registo, para se ver a origem do lado do trabalho.
+    ticket: { select: { id: true, ticketNumber: true, title: true } },
     createdBy: { select: { id: true, name: true } },
     updatedBy: { select: { id: true, name: true } },
     // workEmail é lido para decidir permissões e removido antes de responder.

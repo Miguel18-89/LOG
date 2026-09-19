@@ -39,6 +39,7 @@ const frotaRouter = require('./api/routes/frotaRoutes');
 const pessoalRouter = require('./api/routes/pessoalRoutes');
 const feriasRouter  = require('./api/routes/feriasRoutes');
 const workOrderRouter = require('./api/routes/workOrderRoutes');
+const ticketRouter = require('./api/routes/ticketRoutes');
 
 
 
@@ -63,6 +64,7 @@ app.use('/emg/frota', frotaRouter);
 app.use('/emg/pessoal', pessoalRouter);
 app.use('/emg/ferias',  feriasRouter);
 app.use('/emg/obras',   workOrderRouter);
+app.use('/emg/tickets', ticketRouter);
 
 // A pasta uploads/ NÃO é servida estaticamente: expunha fichas de aptidão médica,
 // documentos de lojas e ficheiros de obras a quem soubesse o nome do ficheiro, sem
