@@ -148,7 +148,7 @@ exports.createWorkOrder = async (req, res) => {
         const parsed = workOrderSchema.safeParse(req.body);
         if (!parsed.success) return zodError(res, parsed);
 
-        const { technicianIds, externalTechnicians, notes, ...data } = parsed.data;
+        const { technicianIds, externalTechnicians, notes, ticket_id, ...data } = parsed.data;
 
         const workOrder = await prisma.workOrder.create({
             data: {
@@ -157,6 +157,9 @@ exports.createWorkOrder = async (req, res) => {
                 externalTechnicians: externalTechnicians ?? [],
                 technicians: { connect: (technicianIds ?? []).map(id => ({ id })) },
                 createdBy: { connect: { id: req.user.id } },
+                // Pela relação e não pelo campo escalar: o Prisma não deixa
+                // misturar as duas formas no mesmo create.
+                ...(ticket_id ? { ticket: { connect: { id: ticket_id } } } : {}),
             },
             include: workOrderInclude,
         });
@@ -241,7 +244,7 @@ exports.updateWorkOrder = async (req, res) => {
         const parsed = updateWorkOrderSchema.safeParse(req.body);
         if (!parsed.success) return zodError(res, parsed);
 
-        const { technicianIds, ...fields } = parsed.data;
+        const { technicianIds, ticket_id, ...fields } = parsed.data;
 
         const workOrder = await prisma.workOrder.update({
             where: { id },
@@ -251,6 +254,9 @@ exports.updateWorkOrder = async (req, res) => {
                 // `set` substitui a lista inteira, para que remover um técnico funcione.
                 ...(technicianIds !== undefined
                     ? { technicians: { set: technicianIds.map(tid => ({ id: tid })) } }
+                    : {}),
+                ...(ticket_id !== undefined
+                    ? { ticket: ticket_id ? { connect: { id: ticket_id } } : { disconnect: true } }
                     : {}),
             },
             include: workOrderInclude,

@@ -41,6 +41,12 @@ const workOrderBaseSchema = z.object({
     tasks: z.string().trim().min(1, { message: 'Descrição das tarefas obrigatória' }),
     materials: z.string().trim().min(1, { message: 'Descrição dos materiais obrigatória' }),
     notes: z.string().trim().optional(),
+    // Pedido que originou a obra. Vazio significa "sem origem", ausente significa
+    // "não mexer" — a mesma distinção usada nos campos opcionais dos tickets.
+    ticket_id: z
+        .union([z.literal(''), z.null(), z.string().uuid({ message: 'Ticket inválido' })])
+        .optional()
+        .transform(v => (v === '' || v === null ? null : v)),
     // Sem .default() de propósito: num update parcial o default preencheria []
     // e apagaria os técnicos já associados. Ausente tem de significar ausente.
     technicianIds: z.array(z.string().uuid()).optional(),
