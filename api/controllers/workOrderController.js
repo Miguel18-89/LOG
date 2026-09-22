@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 const {
     TYPE_VALID, STATUS_VALID, DOC_KINDS, ALLOWED_UPLOAD_EXTS, ALLOWED_UPLOAD_MIMES,
     workOrderSchema, updateWorkOrderSchema, signatureSchema, sendReportSchema,
+    captionSchema, MAX_CAPTION,
 } = require('../schemas/workOrderSchema.js');
 
 const ROLE_ADMIN = 2;
@@ -25,7 +26,7 @@ const workOrderInclude = {
     // workEmail é lido para decidir permissões e removido antes de responder.
     technicians: { select: { id: true, fullName: true, workEmail: true }, orderBy: { fullName: 'asc' } },
     documents: {
-        select: { id: true, kind: true, originalName: true, uploadedAt: true },
+        select: { id: true, kind: true, originalName: true, caption: true, uploadedAt: true },
         orderBy: { uploadedAt: 'asc' },
     },
 };
@@ -45,7 +46,7 @@ const workOrderListSelect = {
     // workEmail é lido para decidir permissões e removido antes de responder.
     technicians: { select: { id: true, fullName: true, workEmail: true }, orderBy: { fullName: 'asc' } },
     documents: {
-        select: { id: true, kind: true, originalName: true, uploadedAt: true },
+        select: { id: true, kind: true, originalName: true, caption: true, uploadedAt: true },
         orderBy: { uploadedAt: 'asc' },
     },
 };
@@ -382,12 +383,16 @@ exports.uploadDocument = async (req, res) => {
             });
         }
 
+        // A legenda pode vir logo no upload; o multipart traz tudo como texto.
+        const caption = String(req.body.caption ?? '').trim().slice(0, MAX_CAPTION) || null;
+
         const document = await prisma.workOrderDocument.create({
             data: {
                 kind,
                 filename: '',
                 path: '',
                 originalName,
+                caption,
                 workOrder: { connect: { id } },
                 uploadedBy: { connect: { id: req.user.id } },
             },
@@ -403,7 +408,7 @@ exports.uploadDocument = async (req, res) => {
         const updated = await prisma.workOrderDocument.update({
             where: { id: document.id },
             data: { filename: storedName, path: newPath },
-            select: { id: true, kind: true, originalName: true, uploadedAt: true },
+            select: { id: true, kind: true, originalName: true, caption: true, uploadedAt: true },
         });
 
         res.status(201).json(updated);
@@ -424,6 +429,38 @@ exports.getDocument = async (req, res) => {
         res.download(path.resolve(doc.path), doc.originalName);
     } catch (e) {
         console.error('Erro ao enviar documento:', e);
+        res.status(500).json({ error: 'Algo correu mal.' });
+    }
+};
+
+/** Escreve ou apaga a legenda de um anexo. */
+exports.updateDocumentCaption = async (req, res) => {
+    try {
+        // Mexer num anexo é mexer na obra: exige as mesmas permissões.
+        if (!await loadEditableWorkOrder(req, res)) return;
+
+        const parsed = captionSchema.safeParse(req.body);
+        if (!parsed.success) return zodError(res, parsed);
+
+        const doc = await prisma.workOrderDocument.findFirst({
+            where: { id: req.params.docId, workOrder_id: req.params.id },
+        });
+        if (!doc) return res.status(404).json({ error: 'Documento não encontrado.' });
+
+        const updated = await prisma.workOrderDocument.update({
+            where: { id: doc.id },
+            data: { caption: parsed.data.caption },
+            select: { id: true, kind: true, originalName: true, caption: true, uploadedAt: true },
+        });
+
+        await prisma.workOrder.update({
+            where: { id: req.params.id },
+            data: { updatedBy: { connect: { id: req.user.id } } },
+        });
+
+        res.status(200).json(updated);
+    } catch (e) {
+        console.error('Erro ao guardar legenda:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
     }
 };

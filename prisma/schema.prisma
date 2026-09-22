@@ -415,6 +415,9 @@ model WorkOrderDocument {
   kind         String    @default("documento") // documento | foto
   filename     String
   originalName String
+  // Legenda opcional, sobretudo para o relatório: uma foto sem explicação
+  // diz pouco a quem a lê meses depois.
+  caption      String?
   path         String
   uploadedAt   DateTime  @default(now())
   workOrder_id String

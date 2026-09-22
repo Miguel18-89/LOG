@@ -63,6 +63,18 @@ const workOrderBaseSchema = z.object({
 // No update todos os campos são opcionais, mas os que vierem têm de continuar válidos.
 const updateWorkOrderSchema = workOrderBaseSchema.partial();
 
+// Legenda de um anexo. Curta de propósito: entra por baixo da foto no relatório,
+// onde só há espaço para uma linha ou duas. Vazio apaga a legenda.
+const MAX_CAPTION = 300;
+
+const captionSchema = z.object({
+    caption: z
+        .string()
+        .trim()
+        .max(MAX_CAPTION, { message: `Legenda demasiado longa (máximo ${MAX_CAPTION} caracteres)` })
+        .transform(v => (v === '' ? null : v)),
+});
+
 // Valida a string INTEIRA, não só o prefixo: antes, tudo o que viesse a seguir a
 // "data:image/png;base64," era aceite, incluindo aspas e tags HTML que depois eram
 // interpoladas no template do relatório.
@@ -100,6 +112,8 @@ module.exports = {
     DOC_KINDS,
     ALLOWED_UPLOAD_EXTS,
     ALLOWED_UPLOAD_MIMES,
+    MAX_CAPTION,
+    captionSchema,
     workOrderSchema: workOrderBaseSchema,
     updateWorkOrderSchema,
     signatureSchema,
