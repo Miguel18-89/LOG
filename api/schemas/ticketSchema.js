@@ -4,7 +4,7 @@ const { z } = require('zod');
 // se aceitam não muda de módulo para módulo, e duplicá-las era garantir que uma
 // delas ficava para trás na próxima revisão.
 const {
-    DOC_KINDS, ALLOWED_UPLOAD_EXTS, ALLOWED_UPLOAD_MIMES,
+    DOC_KINDS, ALLOWED_UPLOAD_EXTS, ALLOWED_UPLOAD_MIMES, MAX_CAPTION, captionSchema,
 } = require('./workOrderSchema.js');
 
 const TYPE_VALID = ['assistencia', 'tarefa'];
@@ -88,6 +88,8 @@ module.exports = {
     STATUS_VALID,
     TRACKED_FIELDS,
     DOC_KINDS,
+    MAX_CAPTION,
+    captionSchema,
     ALLOWED_UPLOAD_EXTS,
     ALLOWED_UPLOAD_MIMES,
     ticketSchema: ticketBaseSchema,

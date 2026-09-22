@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 const {
     TYPE_VALID, PRIORITY_VALID, STATUS_VALID, TRACKED_FIELDS,
-    DOC_KINDS, ALLOWED_UPLOAD_EXTS, ALLOWED_UPLOAD_MIMES,
+    DOC_KINDS, ALLOWED_UPLOAD_EXTS, ALLOWED_UPLOAD_MIMES, MAX_CAPTION, captionSchema,
     ticketSchema, updateTicketSchema, messageSchema,
     linkWorkOrderSchema, linkRmaSchema,
 } = require('../schemas/ticketSchema.js');
@@ -32,7 +32,7 @@ const ticketInclude = {
         orderBy: { created_at: 'asc' },
     },
     documents: {
-        select: { id: true, kind: true, originalName: true, uploadedAt: true },
+        select: { id: true, kind: true, originalName: true, caption: true, uploadedAt: true },
         orderBy: { uploadedAt: 'asc' },
     },
     workOrders: { select: { id: true, orderNumber: true, client: true, obra: true, date: true } },
@@ -528,12 +528,16 @@ exports.uploadDocument = async (req, res) => {
             });
         }
 
+        // A legenda pode vir logo no upload; o multipart traz tudo como texto.
+        const caption = String(req.body.caption ?? '').trim().slice(0, MAX_CAPTION) || null;
+
         const document = await prisma.ticketDocument.create({
             data: {
                 kind,
                 filename: '',
                 path: '',
                 originalName,
+                caption,
                 ticket: { connect: { id } },
                 uploadedBy: { connect: { id: req.user.id } },
             },
@@ -547,7 +551,7 @@ exports.uploadDocument = async (req, res) => {
         const updated = await prisma.ticketDocument.update({
             where: { id: document.id },
             data: { filename: storedName, path: newPath },
-            select: { id: true, kind: true, originalName: true, uploadedAt: true },
+            select: { id: true, kind: true, originalName: true, caption: true, uploadedAt: true },
         });
 
         res.status(201).json(updated);
@@ -568,6 +572,29 @@ exports.getDocument = async (req, res) => {
         res.download(path.resolve(doc.path), doc.originalName);
     } catch (e) {
         console.error('Erro ao enviar documento do ticket:', e);
+        res.status(500).json({ error: 'Algo correu mal.' });
+    }
+};
+
+/** Escreve ou apaga a legenda de um anexo. */
+exports.updateDocumentCaption = async (req, res) => {
+    try {
+        const parsed = captionSchema.safeParse(req.body);
+        if (!parsed.success) return zodError(res, parsed);
+
+        const doc = await prisma.ticketDocument.findFirst({
+            where: { id: req.params.docId, ticket_id: req.params.id },
+        });
+        if (!doc) return res.status(404).json({ error: 'Documento não encontrado.' });
+
+        const updated = await prisma.ticketDocument.update({
+            where: { id: doc.id },
+            data: { caption: parsed.data.caption },
+            select: { id: true, kind: true, originalName: true, caption: true, uploadedAt: true },
+        });
+        res.status(200).json(updated);
+    } catch (e) {
+        console.error('Erro ao guardar legenda do ticket:', e);
         res.status(500).json({ error: 'Algo correu mal.' });
     }
 };

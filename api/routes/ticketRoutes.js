@@ -29,6 +29,7 @@ router.delete('/:id/rmas/:rmaId',          auth.requireAuthorization, ctrl.unlin
 
 router.post('/:id/documentos',          auth.requireAuthorization, upload.single('file'), ctrl.uploadDocument);
 router.get('/:id/documentos/:docId',    auth.requireAuthorization, ctrl.getDocument);
+router.put('/:id/documentos/:docId',    auth.requireAuthorization, ctrl.updateDocumentCaption);
 router.delete('/:id/documentos/:docId', auth.requireAuthorization, ctrl.deleteDocument);
 
 module.exports = router;

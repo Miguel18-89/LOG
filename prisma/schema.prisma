@@ -55,6 +55,7 @@ model User {
   ticketsAssigned         Ticket[]         @relation("TicketAssignee")
   ticketEntries           TicketEntry[]    @relation("TicketEntryByUser")
   ticketDocuments         TicketDocument[] @relation("TicketDocByUser")
+  rmaDocuments            RMADocument[]    @relation("RMADocByUser")
 }
 
 model Store {
@@ -231,6 +232,7 @@ model RMA {
   status         String      @default("no_cliente")
   repairLocation String?
   updates        RMAUpdate[]
+  documents      RMADocument[]
   created_at     DateTime    @default(now())
   updated_at     DateTime    @updatedAt
   user_id        String
@@ -249,6 +251,20 @@ model RMAUpdate {
   rma        RMA      @relation(fields: [rma_id], references: [id], onDelete: Cascade)
   user_id    String
   createdBy  User     @relation("RMAUpdateByUser", fields: [user_id], references: [id])
+}
+
+model RMADocument {
+  id           String   @id @default(uuid())
+  kind         String   @default("documento") // documento | foto
+  filename     String
+  originalName String
+  caption      String?
+  path         String
+  uploadedAt   DateTime @default(now())
+  rma_id       String
+  rma          RMA      @relation(fields: [rma_id], references: [id], onDelete: Cascade)
+  uploaded_by  String
+  uploadedBy   User     @relation("RMADocByUser", fields: [uploaded_by], references: [id])
 }
 
 model Vehicle {
@@ -478,6 +494,8 @@ model TicketDocument {
   kind         String   @default("documento") // documento | foto
   filename     String
   originalName String
+  // Legenda opcional, como nas obras: uma foto sem explicação diz pouco.
+  caption      String?
   path         String
   uploadedAt   DateTime @default(now())
   ticket_id    String
