@@ -2,6 +2,7 @@ let nodemailer = require("nodemailer");
 const fs = require('fs');
 const path = require('path');
 const handlebars = require('handlebars');
+const { webUrl } = require('./webUrl.js');
 
 
 exports.sendEmail = async (to, subject, message) => {
@@ -26,7 +27,7 @@ exports.sendEmail = async (to, subject, message) => {
 }
 
 exports.sendResetPasswordEmail = async (to, subject, resetToken, userName) => {
-    const resetURL = `http://213.199.58.233:8080/reset-password/${resetToken}`;
+    const resetURL = `${webUrl()}/reset-password/${resetToken}`;
     const source = fs.readFileSync(path.join(__dirname, 'ForgotPasswordEmail.html'), 'utf8');
     const template = handlebars.compile(source);
     const htmlContent = template({
@@ -60,7 +61,7 @@ exports.sendNewUserEmail = async (to, subject, name, email) => {
     const htmlContent = template({
         newUserName: name,
         newUserEmail: email,
-        signInLink: "http://213.199.58.233:8080/",
+        signInLink: `${webUrl()}/`,
 
     });
 
@@ -399,7 +400,7 @@ exports.sendUserApprovedEmail = async (to, subject, userName) => {
     const source = fs.readFileSync(path.join(__dirname, 'UserApproved.html'), 'utf8');
     const template = handlebars.compile(source);
     const htmlContent = template({
-        signInLink: "http://213.199.58.233:8080/",
+        signInLink: `${webUrl()}/`,
         userName: userName,
         
     });

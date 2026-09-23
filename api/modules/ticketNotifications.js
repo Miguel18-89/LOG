@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { sendEmail } = require('./email.js');
+const { webUrl } = require('./webUrl.js');
 
 const prisma = new PrismaClient();
 
@@ -18,16 +19,6 @@ const STATUS_LABELS = {
     fechado: 'Fechado',
     cancelado: 'Cancelado',
 };
-
-/**
- * Endereço da plataforma para o link do email.
- * FRONTEND_URL é a lista de origens aceites pelo CORS, separada por vírgulas —
- * a primeira é a que serve para mostrar às pessoas.
- */
-function webUrl() {
-    const first = (process.env.FRONTEND_URL || '').split(',')[0].trim();
-    return first || 'https://log.213.199.58.233.sslip.io';
-}
 
 function fmtDate(value) {
     return value ? new Date(value).toLocaleDateString('pt-PT') : '—';

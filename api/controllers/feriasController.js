@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { sendEmail } = require('../modules/email');
+const { webUrl } = require('../modules/webUrl.js');
 
 const vacationInclude = {
     employee: { select: { id: true, fullName: true, workEmail: true } },
@@ -82,7 +83,7 @@ exports.createVacation = async (req, res) => {
 
         // Notify all managers/admins
         const fmt = d => new Date(d).toLocaleDateString('pt-PT');
-        const frontendUrl = process.env.FRONTEND_URL || 'http://213.199.58.233:8080';
+        const frontendUrl = webUrl();
         const admins = await prisma.user.findMany({ where: { role: { gte: 1 }, is_active: true, approved: true } });
         for (const admin of admins) {
             sendEmail(
@@ -152,7 +153,7 @@ exports.updateStatus = async (req, res) => {
 
         if (status === 'cancelado' && wasApproved) {
             const admins = await prisma.user.findMany({ where: { role: { gte: 1 }, is_active: true, approved: true } });
-            const frontendUrl = process.env.FRONTEND_URL || 'http://213.199.58.233:8080';
+            const frontendUrl = webUrl();
             for (const admin of admins) {
                 sendEmail(
                     admin.email,
