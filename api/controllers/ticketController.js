@@ -379,6 +379,49 @@ exports.addMessage = async (req, res) => {
     }
 };
 
+/**
+ * Apaga uma mensagem da linha de tempo. Só administradores, e só mensagens.
+ *
+ * As entradas de tipo `alteracao` são o rasto de quem mudou o quê e quando:
+ * poder apagá-las tirava ao histórico a razão de existir. A própria eliminação
+ * fica registada, senão o histórico passava a mentir por omissão.
+ */
+exports.deleteMessage = async (req, res) => {
+    try {
+        const { id, entryId } = req.params;
+
+        const entry = await prisma.ticketEntry.findFirst({
+            where: { id: entryId, ticket_id: id },
+            include: { createdBy: { select: { name: true } } },
+        });
+        if (!entry) return res.status(404).json({ error: 'Mensagem não encontrada.' });
+        if (entry.kind !== 'mensagem') {
+            return res.status(409).json({
+                error: 'Só as mensagens podem ser eliminadas. O registo de alterações é o rasto do que aconteceu.',
+            });
+        }
+
+        await prisma.$transaction([
+            prisma.ticketEntry.delete({ where: { id: entry.id } }),
+            prisma.ticketEntry.create({
+                data: {
+                    kind: 'alteracao',
+                    field: 'mensagem_eliminada',
+                    toValue: entry.createdBy?.name ?? null,
+                    ticket_id: id,
+                    user_id: req.user.id,
+                },
+            }),
+        ]);
+
+        const fresh = await prisma.ticket.findUnique({ where: { id }, include: ticketInclude });
+        res.status(200).json(withPermissions(fresh, req.user));
+    } catch (e) {
+        console.error('Erro ao eliminar mensagem do ticket:', e);
+        res.status(500).json({ error: 'Algo correu mal.' });
+    }
+};
+
 /* ── Ligação a obras e RMAs ── */
 
 async function ticketExists(id, res) {

@@ -22,6 +22,10 @@ router.delete('/:id', auth.requireAuthorization, auth.requireAdmin, ctrl.deleteT
 
 router.post('/:id/mensagens', auth.requireAuthorization, ctrl.addMessage);
 
+// Apagar uma mensagem e so de administrador, e o controlador recusa tudo o que
+// nao seja uma mensagem: o registo de alteracoes nao se apaga.
+router.delete('/:id/mensagens/:entryId', auth.requireAuthorization, auth.requireAdmin, ctrl.deleteMessage);
+
 router.post('/:id/obras',                  auth.requireAuthorization, ctrl.linkWorkOrder);
 router.delete('/:id/obras/:workOrderId',   auth.requireAuthorization, ctrl.unlinkWorkOrder);
 router.post('/:id/rmas',                   auth.requireAuthorization, ctrl.linkRma);
