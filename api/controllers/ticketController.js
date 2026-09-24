@@ -163,7 +163,7 @@ exports.getAllTickets = async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const pageSize = Math.min(Math.max(1, parseInt(req.query.pageSize) || 10), MAX_PAGE_SIZE);
-        const { search, type, status, priority, assignee, mine, open, from, to } = req.query;
+        const { search, type, status, priority, assignee, mine, open, hideClosed, from, to } = req.query;
 
         const where = {};
         if (type && TYPE_VALID.includes(type)) where.type = type;
@@ -173,6 +173,9 @@ exports.getAllTickets = async (req, res) => {
         // "Os meus" ignora um `assignee` contraditório: é o filtro mais específico.
         if (mine === 'true') where.assignee_id = req.user.id;
         if (open === 'true') where.status = { in: OPEN_STATUSES };
+        // A lista principal mostra o que ainda esta por fechar. Os cancelados
+        // continuam a aparecer: sao poucos e desaparecerem sem rasto confundia.
+        if (hideClosed === 'true' && !status) where.status = { not: 'fechado' };
 
         if (search) {
             where.OR = [
@@ -195,8 +198,11 @@ exports.getAllTickets = async (req, res) => {
                 where,
                 skip: (page - 1) * pageSize,
                 take: pageSize,
-                // Os mais urgentes primeiro dentro da mesma data de abertura.
-                orderBy: [{ status: 'asc' }, { created_at: 'desc' }],
+                // A lista dos fechados interessa pela ordem do fecho; as restantes,
+                // pelo estado e depois pela data de abertura.
+                orderBy: status === 'fechado'
+                    ? [{ closedAt: 'desc' }, { created_at: 'desc' }]
+                    : [{ status: 'asc' }, { created_at: 'desc' }],
                 select: ticketListSelect,
             }),
             prisma.ticket.count({ where }),
