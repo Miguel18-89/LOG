@@ -3,3 +3,9 @@ node_modules
 .env
 
 /generated/prisma
+
+# Anexos carregados pelos utilizadores: fotos de obras, documentos, PDFs.
+# Sao dados, nao codigo -- vivem no bind-mount do servidor e nao no repositorio.
+# (14 ficheiros entraram em commits antigos e continuam versionados; limpa-los
+#  exige um `git rm --cached`, que fica para quando se decidir.)
+uploads/

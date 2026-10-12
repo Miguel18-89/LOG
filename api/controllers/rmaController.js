@@ -48,9 +48,12 @@ exports.createRMA = async (req, res) => {
 
 exports.getAllRMAs = async (req, res) => {
     try {
-        const { status, client, page = 1, pageSize = 10 } = req.query;
+        const { status, client, hideDelivered, page = 1, pageSize = 10 } = req.query;
         const where = {};
         if (status) where.status = status;
+        // A lista principal mostra o que ainda esta em curso; os entregues tem
+        // tabela propria. Um `status` explicito ganha sempre.
+        if (hideDelivered === 'true' && !status) where.status = { not: 'entregue' };
         if (client) where.client = { contains: client, mode: 'insensitive' };
 
         const [data, total] = await Promise.all([
@@ -58,7 +61,10 @@ exports.getAllRMAs = async (req, res) => {
                 where,
                 skip: (parseInt(page) - 1) * parseInt(pageSize),
                 take: parseInt(pageSize),
-                orderBy: { rmaNumber: 'asc' },
+                // Os entregues interessam do mais recente para o mais antigo,
+                // que e como se consulta historico; a fila de trabalho le-se
+                // pela ordem de entrada.
+                orderBy: { rmaNumber: status === 'entregue' ? 'desc' : 'asc' },
                 include: {
                     createdBy: { select: { id: true, name: true } },
                     // Pedido que originou este RMA, para se ver a origem.

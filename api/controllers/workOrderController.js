@@ -175,12 +175,16 @@ exports.getAllWorkOrders = async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const pageSize = Math.min(Math.max(1, parseInt(req.query.pageSize) || 10), MAX_PAGE_SIZE);
-        const { client, type, status, from, to, technician } = req.query;
+        const { client, type, status, hideDone, from, to, technician } = req.query;
 
         const where = {};
         if (client) where.client = { contains: client, mode: 'insensitive' };
         if (type && TYPE_VALID.includes(type)) where.type = type;
         if (status && STATUS_VALID.includes(status)) where.status = status;
+        // A lista principal mostra o que ainda esta a decorrer; as concluidas
+        // tem tabela propria. Um `status` explicito ganha sempre, senao era
+        // impossivel pedir as concluidas.
+        if (hideDone === 'true' && !status) where.status = { not: 'concluida' };
         if (from || to) {
             where.date = {};
             if (from) where.date.gte = new Date(from);
