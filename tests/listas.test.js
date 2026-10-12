@@ -37,7 +37,7 @@ async function req(method, url, { token, body } = {}) {
 }
 
 (async () => {
-    const criados = { users: [], obras: [], rmas: [] };
+    const criados = { users: [], obras: [], rmas: [], tickets: [] };
     try {
         const utilizador = await prisma.user.create({
             data: {
@@ -145,6 +145,65 @@ async function req(method, url, { token, body } = {}) {
         console.log('\n--- RMA: o resto continua de pé ---');
         check('traz os anexos', Array.isArray((await qRma()).body.data[0]?.documents));
         check('sem token devolve 401', (await req('GET', '/emg/rma')).status === 401);
+
+        console.log('\n--- RMA: a ordem segue a data de entrega, não o número ---');
+        // O que estava em curso é entregue agora, depois de todos os outros. Se a
+        // ordenação seguisse o `rmaNumber`, que é ordem de abertura, ele vinha em
+        // último. Era esse o defeito.
+        await req('PUT', `/emg/rma/${aberto.id}`, { token, body: { status: 'entregue' } });
+        const porEntrega = (await qRma('status=entregue')).body.data;
+        check('o último a ser entregue vem primeiro',
+            porEntrega[0]?.id === aberto.id, porEntrega.map(r => r.rmaNumber));
+        check('os entregues trazem data de entrega',
+            porEntrega.every(r => r.deliveredAt), porEntrega.map(r => r.deliveredAt));
+        await req('PUT', `/emg/rma/${aberto.id}`, { token, body: { status: 'no_cliente' } });
+        check('voltar atrás limpa a data de entrega',
+            (await req('GET', `/emg/rma/${aberto.id}`, { token })).body.deliveredAt === null);
+
+        /* ── Tickets: fechados e cancelados saem da fila ── */
+
+        const criarTicket = async (title) => {
+            const r = await req('POST', '/emg/tickets', {
+                token,
+                body: {
+                    type: 'tarefa', title, description: 'ZZT teste de listagem',
+                    client: 'ZZT Cliente',
+                },
+            });
+            if (r.body?.id) criados.tickets.push(r.body.id);
+            return r.body;
+        };
+
+        const naFila = await criarTicket('ZZT Por fazer');
+        const fechado = await criarTicket('ZZT Fechado');
+        const cancelado = await criarTicket('ZZT Cancelado');
+        await req('PUT', `/emg/tickets/${fechado.id}`, { token, body: { status: 'fechado' } });
+        await req('PUT', `/emg/tickets/${cancelado.id}`, { token, body: { status: 'cancelado' } });
+
+        const qTickets = (extra = '') => req('GET', `/emg/tickets?pageSize=50&search=ZZT&${extra}`, { token });
+
+        console.log('\n--- Tickets: a fila de trabalho ---');
+        const filaTickets = (await qTickets('hideClosed=true')).body;
+        const idsFila = filaTickets.data.map(t => t.id);
+        check('o que está por fazer aparece', idsFila.includes(naFila.id));
+        check('o fechado não aparece', !idsFila.includes(fechado.id));
+        check('o cancelado também não', !idsFila.includes(cancelado.id), filaTickets.total);
+
+        console.log('\n--- Tickets: o arquivo ---');
+        const arquivo = (await qTickets('archived=true')).body;
+        const idsArq = arquivo.data.map(t => t.id);
+        check('traz o fechado', idsArq.includes(fechado.id));
+        check('traz o cancelado', idsArq.includes(cancelado.id));
+        check('não traz o que está por fazer', !idsArq.includes(naFila.id), arquivo.total);
+        check('cancelar carimba a data de saída',
+            arquivo.data.find(t => t.id === cancelado.id)?.closedAt != null);
+        check('estado explícito ganha ao archived',
+            (await qTickets('archived=true&status=cancelado')).body.total === 1);
+        check('reabrir limpa a data de saída', await (async () => {
+            await req('PUT', `/emg/tickets/${cancelado.id}`, { token, body: { status: 'aberto' } });
+            const t = (await req('GET', `/emg/tickets/${cancelado.id}`, { token })).body;
+            return t.closedAt === null;
+        })());
     } catch (erro) {
         ko++;
         console.error('ERRO:', erro);
@@ -154,6 +213,11 @@ async function req(method, url, { token, body } = {}) {
         }
         for (const id of criados.rmas) {
             try { await prisma.rMA.delete({ where: { id } }); } catch { /* já apagado */ }
+        }
+        // Os tickets antes dos utilizadores: as entradas da linha de tempo
+        // apontam para quem as escreveu.
+        for (const id of criados.tickets) {
+            try { await prisma.ticket.delete({ where: { id } }); } catch { /* já apagado */ }
         }
         for (const id of criados.users) {
             try { await prisma.user.delete({ where: { id } }); } catch { /* já apagado */ }

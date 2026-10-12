@@ -230,6 +230,9 @@ model RMA {
   location       String
   requestedBy    String
   status         String      @default("no_cliente")
+  // Quando foi entregue ao cliente. Anulável: os RMAs entregues antes de este
+  // campo existir não têm data, e a listagem ordena-os a seguir aos que têm.
+  deliveredAt    DateTime?
   repairLocation String?
   updates        RMAUpdate[]
   documents      RMADocument[]

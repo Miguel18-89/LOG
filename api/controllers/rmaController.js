@@ -33,6 +33,8 @@ exports.createRMA = async (req, res) => {
             data: {
                 brand: b, model: m, serialNumber: sn, fault: f, client: c, location: l, requestedBy: rb,
                 status: resolvedStatus,
+                // Raro, mas um RMA pode ser registado já entregue.
+                deliveredAt: resolvedStatus === 'entregue' ? new Date() : null,
                 repairLocation: repairLocation?.trim() || null,
                 openDate: new Date(),
                 createdBy: { connect: { id: req.user.id } },
@@ -61,10 +63,17 @@ exports.getAllRMAs = async (req, res) => {
                 where,
                 skip: (parseInt(page) - 1) * parseInt(pageSize),
                 take: parseInt(pageSize),
-                // Os entregues interessam do mais recente para o mais antigo,
-                // que e como se consulta historico; a fila de trabalho le-se
-                // pela ordem de entrada.
-                orderBy: { rmaNumber: status === 'entregue' ? 'desc' : 'asc' },
+                // Os entregues interessam pela data de entrega, do mais recente
+                // para o mais antigo, que e como se consulta historico; a fila de
+                // trabalho le-se pela ordem de entrada.
+                //
+                // `rmaNumber` sozinho nao servia: e ordem de ABERTURA, e um
+                // equipamento que entrou primeiro pode ser entregue muito depois.
+                // Os entregues antes de existir `deliveredAt` ficam a seguir aos
+                // que tem data, por `nulls: 'last'`, e entre si pelo numero.
+                orderBy: status === 'entregue'
+                    ? [{ deliveredAt: { sort: 'desc', nulls: 'last' } }, { rmaNumber: 'desc' }]
+                    : [{ rmaNumber: 'asc' }],
                 include: {
                     createdBy: { select: { id: true, name: true } },
                     // Pedido que originou este RMA, para se ver a origem.
@@ -125,6 +134,11 @@ exports.updateRMA = async (req, res) => {
                 ...(location && { location: location.trim() }),
                 ...(requestedBy && { requestedBy: requestedBy.trim() }),
                 ...(status && { status }),
+                // A data de entrega segue o estado: grava-se ao entregar e limpa-se
+                // se o equipamento voltar para trás. Reentregar volta a datar.
+                ...(status && status !== exists.status && {
+                    deliveredAt: status === 'entregue' ? new Date() : null,
+                }),
                 repairLocation: repairLocation !== undefined ? (trim(repairLocation) || null) : exists.repairLocation,
             },
             include: {

@@ -17,6 +17,9 @@ const MAX_PAGE_SIZE = 100;
 
 // Estados que contam como "por fechar" no filtro rápido e no cartão da Home.
 const OPEN_STATUSES = ['aberto', 'atribuido', 'em_curso'];
+// Estados que tiram o ticket da fila de trabalho. Um cancelado está tão resolvido
+// quanto um fechado: não há nada a fazer com ele, mas também não se deita fora.
+const ARCHIVED_STATUSES = ['fechado', 'cancelado'];
 
 const userBrief = { select: { id: true, name: true } };
 
@@ -163,7 +166,7 @@ exports.getAllTickets = async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const pageSize = Math.min(Math.max(1, parseInt(req.query.pageSize) || 10), MAX_PAGE_SIZE);
-        const { search, type, status, priority, assignee, mine, open, hideClosed, from, to } = req.query;
+        const { search, type, status, priority, assignee, mine, open, hideClosed, archived, from, to } = req.query;
 
         const where = {};
         if (type && TYPE_VALID.includes(type)) where.type = type;
@@ -173,9 +176,11 @@ exports.getAllTickets = async (req, res) => {
         // "Os meus" ignora um `assignee` contraditório: é o filtro mais específico.
         if (mine === 'true') where.assignee_id = req.user.id;
         if (open === 'true') where.status = { in: OPEN_STATUSES };
-        // A lista principal mostra o que ainda esta por fechar. Os cancelados
-        // continuam a aparecer: sao poucos e desaparecerem sem rasto confundia.
-        if (hideClosed === 'true' && !status) where.status = { not: 'fechado' };
+        // A lista principal e a fila de trabalho: so o que ainda da trabalho.
+        // Fechados e cancelados saem daqui, mas nao desaparecem — tem pagina
+        // propria, que era a razao de os cancelados ficarem antes.
+        if (hideClosed === 'true' && !status) where.status = { notIn: ARCHIVED_STATUSES };
+        if (archived === 'true' && !status) where.status = { in: ARCHIVED_STATUSES };
 
         if (search) {
             where.OR = [
@@ -198,10 +203,13 @@ exports.getAllTickets = async (req, res) => {
                 where,
                 skip: (page - 1) * pageSize,
                 take: pageSize,
-                // A lista dos fechados interessa pela ordem do fecho; as restantes,
-                // pelo estado e depois pela data de abertura.
-                orderBy: status === 'fechado'
-                    ? [{ closedAt: 'desc' }, { created_at: 'desc' }]
+                // O arquivo interessa pela ordem de saída da fila; as restantes
+                // listas, pelo estado e depois pela data de abertura.
+                // Os cancelados de antes desta alteração não têm `closedAt`. Sem
+                // `nulls: 'last'` o Postgres põe os nulos à cabeça num DESC, e o
+                // arquivo abria justamente pelos mais antigos.
+                orderBy: (archived === 'true' || ARCHIVED_STATUSES.includes(status))
+                    ? [{ closedAt: { sort: 'desc', nulls: 'last' } }, { created_at: 'desc' }]
                     : [{ status: 'asc' }, { created_at: 'desc' }],
                 select: ticketListSelect,
             }),
@@ -248,10 +256,11 @@ exports.updateTicket = async (req, res) => {
             fields.status = 'atribuido';
         }
 
-        // O fecho é o único estado com data própria; reabrir limpa-a.
+        // `closedAt` marca a saída da fila de trabalho, e isso acontece tanto a
+        // fechar como a cancelar. Reabrir limpa a data.
         if ('status' in fields && fields.status !== existing.status) {
-            if (fields.status === 'fechado') fields.closedAt = new Date();
-            else if (existing.status === 'fechado') fields.closedAt = null;
+            if (ARCHIVED_STATUSES.includes(fields.status)) fields.closedAt = new Date();
+            else if (ARCHIVED_STATUSES.includes(existing.status)) fields.closedAt = null;
         }
 
         const entries = await diffTrackedFields(existing, fields);
