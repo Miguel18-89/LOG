@@ -4,9 +4,25 @@ const path = require('path');
 const handlebars = require('handlebars');
 const { webUrl } = require('./webUrl.js');
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Ponto único de envio.
+//
+// Antes, cada função criava o seu transporter e montava o seu `mailOptions` —
+// doze vezes o mesmo bloco. Foi por isso que o remetente ficou errado em todas:
+// o `from` era só "LOG", sem endereço, e o Gmail descarta um From sem endereço,
+// substituindo-o pela conta autenticada. O nome de exibição perdia-se e o
+// destinatário via "log.manage25".
+//
+// Com um só sítio a montar o envelope, o `from` deixa de poder divergir.
+// ─────────────────────────────────────────────────────────────────────────────
 
-exports.sendEmail = async (to, subject, message) => {
-    let transporter = nodemailer.createTransport({
+/** Nome de exibição do remetente. Configurável sem mexer no código. */
+const fromName = () => process.env.MAIL_FROM_NAME || 'LOG - EMG';
+
+// O transporter continua a ser criado a cada envio, como antes: criá-lo uma vez
+// no arranque leria as variáveis de ambiente antes de o dotenv as carregar.
+function createTransporter() {
+    return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT,
         auth: {
@@ -14,15 +30,25 @@ exports.sendEmail = async (to, subject, message) => {
             pass: process.env.SMTP_PASSWORD
         }
     });
+}
 
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        text: message
-    }
+/**
+ * Envia um email. Aceita as opções do nodemailer (`to`, `subject`, `text`,
+ * `html`, `attachments`, ...) e impõe o remetente.
+ *
+ * O `from` é imposto aqui de propósito: quem chama não o pode enganar.
+ */
+exports.sendMail = async (options) => {
+    const transporter = createTransporter();
+    return transporter.sendMail({
+        ...options,
+        from: { name: fromName(), address: process.env.SMTP_USER }
+    });
+};
 
-    await transporter.sendMail(mailOptions);
+
+exports.sendEmail = async (to, subject, message) => {
+    await exports.sendMail({ to, subject, text: message });
 
 }
 
@@ -35,23 +61,7 @@ exports.sendResetPasswordEmail = async (to, subject, resetToken, userName) => {
         resetLink: resetURL
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -65,23 +75,7 @@ exports.sendNewUserEmail = async (to, subject, name, email) => {
 
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -92,23 +86,7 @@ exports.sendNewRegisterEmail = async (to, subject, name) => {
         userName: name,
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -126,23 +104,7 @@ exports.sendStoreDetailsUpdateEmail = async (to, subject, updatedStoreDetails) =
 
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -186,23 +148,7 @@ exports.sendStoreSurveyUpdateEmail = async (to, subject, updatedSurvey) => {
         status: statusLabel
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -226,23 +172,7 @@ exports.sendStoreProvisioningUpdateEmail = async (to, subject, updatedProvisioni
         status: statusLabel
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -270,23 +200,7 @@ exports.sendStorePhase1UpdateEmail = async (to, subject, updatedPhase1) => {
         status: statusLabel
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -316,23 +230,7 @@ exports.sendStorePhase2UpdateEmail = async (to, subject, updatedPhase2) => {
         status: statusLabel
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -346,23 +244,7 @@ exports.sendStoreCommentCreateEmail = async (to, subject, message, store, userTh
         message: message
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -376,23 +258,7 @@ exports.sendStoreCommentUpdateEmail = async (to, subject, comment, updatedCommen
         message: updatedComment.message
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }
 
@@ -405,22 +271,6 @@ exports.sendUserApprovedEmail = async (to, subject, userName) => {
         
     });
 
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-        }
-    });
-
-    const mailOptions = {
-        from: "LOG",
-        to: to,
-        subject: subject,
-        html: htmlContent
-    }
-
-    await transporter.sendMail(mailOptions);
+    await exports.sendMail({ to, subject, html: htmlContent });
 
 }

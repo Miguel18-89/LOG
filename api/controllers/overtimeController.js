@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const nodemailer = require('nodemailer');
+const { sendMail } = require('../modules/email');
 const prisma = new PrismaClient();
 const { createOvertimeSchema, updateOvertimeSchema, vacationPeriodSchema, MAX_VACATION_BUSINESS_DAYS, RECORD_TYPES } = require('../schemas/overtimeSchema.js');
 const { hashPin } = require('../utils/pinHash');
@@ -41,14 +41,6 @@ function getMissingBusinessDays(records, year, month) {
         if (!presentDates.has(dateStr)) missing.push(dateStr);
     }
     return missing;
-}
-
-function createTransporter() {
-    return nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-    });
 }
 
 function detectNightType(exitTime) {
@@ -486,9 +478,7 @@ exports.sendOvertimeEmail = async (req, res) => {
             });
         }
 
-        const transporter = createTransporter();
-        await transporter.sendMail({
-            from: `"LOG" <${process.env.SMTP_USER}>`,
+        await sendMail({
             to: recipients.join(', '),
             subject: `Horas Extra — ${monthName} ${year} — ${user.name}`,
             html: `

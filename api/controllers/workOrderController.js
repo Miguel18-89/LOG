@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const nodemailer = require('nodemailer');
+const { sendMail } = require('../modules/email');
 const path = require('path');
 const fs = require('fs/promises');
 const prisma = new PrismaClient();
@@ -58,14 +58,6 @@ function endOfDay(value) {
     const d = new Date(value);
     d.setHours(23, 59, 59, 999);
     return d;
-}
-
-function createTransporter() {
-    return nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-    });
 }
 
 // O multer guarda com o nome original em latin1; o resto da app corrige da mesma forma.
@@ -531,9 +523,7 @@ exports.sendWorkOrderEmail = async (req, res) => {
             ? `<p>${escapeHtml(message).replace(/\n/g, '<br/>')}</p>`
             : '';
 
-        const transporter = createTransporter();
-        await transporter.sendMail({
-            from: `"LOG" <${process.env.SMTP_USER}>`,
+        await sendMail({
             to: recipients.join(', '),
             subject: `Folha de Obra #${workOrder.orderNumber} — ${workOrder.client} — ${workOrder.obra}`,
             html: `

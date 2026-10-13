@@ -1,16 +1,8 @@
 const cron = require('node-cron');
-const nodemailer = require('nodemailer');
+const { sendMail } = require('../modules/email');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-
-function createTransporter() {
-    return nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT),
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-    });
-}
 
 function fmt(date) {
     if (!date) return '—';
@@ -182,10 +174,7 @@ async function sendMondayReport() {
     }
 
     const html = buildHtml(vehicles, repairs, employees, now);
-    const transporter = createTransporter();
-
-    await transporter.sendMail({
-        from: `"LOG" <${process.env.SMTP_USER}>`,
+    await sendMail({
         to: admins.map(a => a.email).join(', '),
         subject: `Relatório Semanal LOG — ${fmt(now)}`,
         html,
